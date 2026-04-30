@@ -1,5 +1,5 @@
-﻿import { Canvas, useLoader } from '@react-three/fiber';
-import { memo, useMemo } from 'react';
+﻿import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { memo, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -105,6 +105,164 @@ function SceneLabel({
   return <sprite position={position} scale={[2.8 * scale, 0.7 * scale, 1]} material={material} />;
 }
 
+function PlainTextLabel({
+  text,
+  position,
+  scale = 1,
+  color = '#0a5a28',
+}: {
+  text: string;
+  position: [number, number, number];
+  scale?: number;
+  color?: string;
+}) {
+  const material = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = '800 46px Manrope, Segoe UI, sans-serif';
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  }, [color, text]);
+
+  return <sprite position={position} scale={[2.4 * scale, 0.55 * scale, 1]} material={material} />;
+}
+
+function getUnitShortName(unitName?: string) {
+  const t = (unitName || '').toUpperCase();
+  if (t.includes('VILA VELHA') || t.includes('PS VV')) return 'Vila Velha';
+  if (t.includes('VITORIA')) return 'Vitoria';
+  if (t.includes('GUTIERREZ')) return 'Gutierrez';
+  if (t.includes('PAMPULHA')) return 'Pampulha';
+  if (t.includes('BARRA DA TIJUCA')) return 'Barra';
+  if (t.includes('BOTAFOGO')) return 'Botafogo';
+  if (t.includes('CAMPO GRANDE')) return 'Campo Grande';
+  if (t.includes('TAGUATINGA')) return 'Taguatinga';
+  if (t.includes('SIG')) return 'SIG';
+  return 'Unidade';
+}
+
+function UnitSign({ unitName }: { unitName?: string }) {
+  const shortName = getUnitShortName(unitName);
+  const groupRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const target = new THREE.Vector3(camera.position.x, groupRef.current.position.y, camera.position.z);
+    groupRef.current.lookAt(target);
+  });
+
+  const faceMaterial = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+
+    if (ctx) {
+      // base transparent
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // frame
+      ctx.fillStyle = '#123c2b';
+      ctx.beginPath();
+      const r0 = 110;
+      ctx.moveTo(r0, 70);
+      ctx.lineTo(canvas.width - r0, 70);
+      ctx.quadraticCurveTo(canvas.width - 70, 70, canvas.width - 70, r0);
+      ctx.lineTo(canvas.width - 70, canvas.height - r0);
+      ctx.quadraticCurveTo(canvas.width - 70, canvas.height - 70, canvas.width - r0, canvas.height - 70);
+      ctx.lineTo(r0, canvas.height - 70);
+      ctx.quadraticCurveTo(70, canvas.height - 70, 70, canvas.height - r0);
+      ctx.lineTo(70, r0);
+      ctx.quadraticCurveTo(70, 70, r0, 70);
+      ctx.closePath();
+      ctx.fill();
+
+      // inner panel
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      const r1 = 92;
+      ctx.moveTo(r1, 98);
+      ctx.lineTo(canvas.width - r1, 98);
+      ctx.quadraticCurveTo(canvas.width - 98, 98, canvas.width - 98, r1);
+      ctx.lineTo(canvas.width - 98, canvas.height - r1);
+      ctx.quadraticCurveTo(canvas.width - 98, canvas.height - 98, canvas.width - r1, canvas.height - 98);
+      ctx.lineTo(r1, canvas.height - 98);
+      ctx.quadraticCurveTo(98, canvas.height - 98, 98, canvas.height - r1);
+      ctx.lineTo(98, r1);
+      ctx.quadraticCurveTo(98, 98, r1, 98);
+      ctx.closePath();
+      ctx.fill();
+
+      // top accent + icon area
+      ctx.fillStyle = '#dff2e7';
+      ctx.fillRect(170, 165, 684, 120);
+      ctx.fillStyle = '#0f8a38';
+      ctx.beginPath();
+      ctx.arc(512, 225, 30, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(497, 226);
+      ctx.lineTo(509, 240);
+      ctx.lineTo(530, 211);
+      ctx.stroke();
+
+      // text
+      ctx.fillStyle = '#0a1f14';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '1000 82px Manrope, Segoe UI, sans-serif';
+      ctx.fillText('Medsenior', canvas.width / 2, 420);
+      ctx.font = '1000 98px Manrope, Segoe UI, sans-serif';
+      ctx.fillText(shortName, canvas.width / 2, 555);
+
+      // subtle bottom glow line
+      ctx.fillStyle = '#cdecd9';
+      ctx.fillRect(185, 735, 654, 16);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 16;
+    texture.minFilter = THREE.LinearMipMapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      transparent: true,
+      alphaTest: 0.08,
+      side: THREE.DoubleSide,
+      roughness: 0.3,
+      metalness: 0.12,
+    });
+  }, [shortName]);
+
+  return (
+    <group ref={groupRef} position={[-2.2, -2.08, 3.35]}>
+      <mesh position={[0, 0.56, 0]}>
+        <planeGeometry args={[1.22, 1.42]} />
+        <primitive object={faceMaterial} attach="material" />
+      </mesh>
+      <mesh position={[0, -0.11, -0.03]}>
+        <boxGeometry args={[0.76, 0.11, 0.28]} />
+        <meshStandardMaterial color="#1d2b38" roughness={0.7} metalness={0.08} />
+      </mesh>
+    </group>
+  );
+}
 function ImportedBuilding() {
   const gltf = useLoader(GLTFLoader, '/models/predio.glb', (loader) => {
     const draco = new DRACOLoader();
@@ -287,6 +445,7 @@ function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
           <meshStandardMaterial color="#000000" emissive="#000000" emissiveIntensity={0.38} roughness={0.9} metalness={0.02} />
         </mesh>
       ))}
+
     </group>
   );
 }
@@ -377,7 +536,6 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
   const ordered = [...floors];
   const offset = (ordered.length - 1) * (SCENE_TUNE.building.floorStep / 2);
   const totalHeight = (Math.max(1, ordered.length) - 1) * SCENE_TUNE.building.floorStep;
-  const bannerText = (unitName || 'UNIDADE').replace(/\s*-\s*PS.*$/i, '').slice(0, 26);
 
   return (
     <div className="vh-canvas-wrap">
@@ -429,10 +587,10 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
         <CarLowPoly x={-5.9} y={-2.08} z={-0.1} color="#ffd166" rotY={Math.PI / 2} />
         <CarLowPoly x={-5.9} y={-2.08} z={2.7} color="#5dd39e" rotY={Math.PI / 2} />
 
-        <TreeLowPoly x={-14} y={-2.05} z={4} />
-        <TreeLowPoly x={-13} y={-2.05} z={-3} />
+        <TreeLowPoly x={-3.35} y={-2.05} z={1.75} />
         <TreeLowPoly x={14} y={-2.05} z={5} />
         <TreeLowPoly x={13} y={-2.05} z={-2} />
+        <UnitSign unitName={unitName} />
 
         {/* Entorno com volume leve para mais realismo */}
         <mesh position={[-6.7, -1.72, -4.8]}>
@@ -478,3 +636,13 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
     </div>
   );
 });
+
+
+
+
+
+
+
+
+
+

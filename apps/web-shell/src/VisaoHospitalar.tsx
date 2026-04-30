@@ -461,7 +461,7 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
     [floors, selectedFloorId]
   );
 
-  const currentHospitalLabel = selectedHospital || 'Selecione uma unidade';
+  const currentHospitalLabel = selectedHospital ? displayUnitName(selectedHospital) : 'Selecione uma unidade';
   const buildingFloors3d = useMemo<BuildingFloor3D[]>(
     () =>
       floors.map((f) => ({
@@ -654,3 +654,4 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
     </div>
   );
 }
+
