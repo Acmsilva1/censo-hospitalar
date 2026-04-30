@@ -403,30 +403,14 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
 
-.vh-building-info {
-  border: 1px solid #8ddfff3a;
-  background: linear-gradient(160deg, #102b43bd 0%, #0a1f34d1 100%);
-  border-radius: 12px;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.vh-building-info span {
-  color: #b7cfe3;
-  font-size: 12px;
-}
-
 .vh-canvas-wrap {
   width: 100%;
-  height: 100%;
+  height: clamp(460px, 72vh, 860px);
   min-height: 0;
   margin: 0 auto;
   border: 1px solid #8ddfff30;
@@ -437,11 +421,64 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   box-shadow: inset 0 1px 0 #d7f2ff17, 0 24px 46px #03101d86;
 }
 
+.vh-floor-tooltip {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.vh-floor-tooltip-line {
+  width: 28px;
+  height: 2px;
+  border-radius: 999px;
+  background: #8edfff;
+  box-shadow: 0 0 10px #70d6ff99;
+}
+
+.vh-floor-tooltip-card {
+  min-width: 240px;
+  max-width: 320px;
+  border: 1px solid #8fdfff5a;
+  border-radius: 12px;
+  background: linear-gradient(155deg, #123652f2 0%, #0e2a41f2 100%);
+  box-shadow: 0 14px 30px #02101d80;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vh-floor-tooltip-card strong {
+  font-size: 14px;
+  color: #f2f9ff;
+  line-height: 1.2;
+}
+
+.vh-floor-tooltip-card span {
+  font-size: 12px;
+  color: #9edbff;
+}
+
+.vh-floor-tooltip-card button {
+  margin-top: 2px;
+  align-self: flex-start;
+  border: 1px solid #8fdfff66;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #38bdf8, #2899d1);
+  color: #062235;
+  font-weight: 800;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
 .vh-building-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
   flex: 1;
   min-height: 0;
 }
@@ -451,9 +488,10 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   background: linear-gradient(160deg, #143752db 0%, #112c44dd 100%);
   border-radius: 12px;
   padding: 10px;
-  height: 100%;
-  max-height: none;
+  height: fit-content;
+  max-height: min(70vh, 420px);
   overflow: auto;
+  align-self: start;
 }
 
 .vh-outside-legend h4 {
@@ -957,15 +995,11 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
     right: -14px;
     width: 14px;
   }
-  .vh-building-info {
-    flex-direction: column;
-    align-items: flex-start;
-  }
   .vh-building-layout {
     grid-template-columns: 1fr;
   }
   .vh-canvas-wrap {
-    height: 100%;
+    height: clamp(380px, 58vh, 620px);
   }
   .vh-outside-legend { max-height: none; }
   .vh-kpi-cloud {

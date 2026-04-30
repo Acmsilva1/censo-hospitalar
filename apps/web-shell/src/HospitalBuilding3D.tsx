@@ -1,5 +1,5 @@
 ﻿import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { memo, useMemo, useRef } from 'react';
+import { memo, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -20,6 +20,13 @@ type Props = {
   onSelectFloor: (id: string) => void;
   selectedFloorId?: string;
   unitName?: string;
+};
+
+type HoverInfo = {
+  floor: BuildingFloor3D;
+  y: number;
+  sx: number;
+  sy: number;
 };
 
 // Ajustes rápidos de cena (edite aqui)
@@ -99,7 +106,7 @@ function SceneLabel({
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
-    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false });
   }, [bg, fg, text]);
 
   return <sprite position={position} scale={[2.8 * scale, 0.7 * scale, 1]} material={material} />;
@@ -131,7 +138,7 @@ function PlainTextLabel({
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
-    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false });
   }, [color, text]);
 
   return <sprite position={position} scale={[2.4 * scale, 0.55 * scale, 1]} material={material} />;
@@ -283,7 +290,7 @@ function ImportedBuilding() {
 }
 
 function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
-  const levels = Math.max(2, floorsCount);
+  const levels = Math.max(1, floorsCount);
   const baseY = -0.72;
   return (
     <group position={[0.1, 0.14, 0.02]}>
@@ -298,13 +305,13 @@ function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
       </mesh>
       <mesh position={[0, -0.2, 0]}>
         <boxGeometry args={[5.5, 0.34, 3.0]} />
-        <meshStandardMaterial color="#d9e1e9" roughness={0.72} metalness={0.06} />
+        <meshStandardMaterial color="#a7b2bc" roughness={0.72} metalness={0.06} />
       </mesh>
 
       {/* Portaria frontal */}
       <mesh position={[0.05, -0.45, 1.58]}>
         <boxGeometry args={[2.4, 0.22, 0.28]} />
-        <meshStandardMaterial color="#f2f7fb" roughness={0.34} metalness={0.12} />
+        <meshStandardMaterial color="#adb8c2" roughness={0.34} metalness={0.12} />
       </mesh>
       <mesh position={[0.05, -0.62, 1.64]}>
         <boxGeometry args={[2.05, 0.4, 0.09]} />
@@ -316,11 +323,11 @@ function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
       </mesh>
       <mesh position={[-0.26, -0.62, 1.72]}>
         <boxGeometry args={[0.34, 0.24, 0.02]} />
-        <meshStandardMaterial color="#f9fdff" roughness={0.18} metalness={0.45} />
+        <meshStandardMaterial color="#c2ccd5" roughness={0.18} metalness={0.45} />
       </mesh>
       <mesh position={[0.36, -0.62, 1.72]}>
         <boxGeometry args={[0.34, 0.24, 0.02]} />
-        <meshStandardMaterial color="#f9fdff" roughness={0.18} metalness={0.45} />
+        <meshStandardMaterial color="#c2ccd5" roughness={0.18} metalness={0.45} />
       </mesh>
       <mesh position={[0.05, -0.78, 1.48]}>
         <boxGeometry args={[1.9, 0.06, 0.72]} />
@@ -340,7 +347,7 @@ function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
             <mesh position={[0, 0.34, 0]}>
               <boxGeometry args={[5.42, 0.1, 2.97]} />
               <meshStandardMaterial
-                color={isTopLevel ? '#0a0d12' : '#f8fbff'}
+                color={isTopLevel ? '#0a0d12' : '#b4bec8'}
                 emissive={isTopLevel ? '#0a0d12' : '#000000'}
                 emissiveIntensity={isTopLevel ? 0.25 : 0}
                 roughness={isTopLevel ? 0.62 : 0.34}
@@ -350,7 +357,7 @@ function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
             <mesh position={[0, 0.27, 0]}>
               <boxGeometry args={[5.24, 0.08, 2.82]} />
               <meshStandardMaterial
-                color={isTopLevel ? '#121821' : '#dce5ec'}
+                color={isTopLevel ? '#121821' : '#9ca8b3'}
                 roughness={isTopLevel ? 0.7 : 0.4}
                 metalness={isTopLevel ? 0.04 : 0.08}
               />
@@ -369,7 +376,7 @@ function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
             {[-2.15, -0.72, 0.72, 2.15].map((x) => (
               <mesh key={`pillar-${i}-${x}`} position={[x, 0.02, 1.32]}>
                 <boxGeometry args={[0.08, 0.52, 0.12]} />
-                <meshStandardMaterial color="#e5eaf0" roughness={0.4} metalness={0.12} />
+                <meshStandardMaterial color="#aab4bf" roughness={0.4} metalness={0.12} />
               </mesh>
             ))}
             {/* Montantes de vidro para realismo */}
@@ -455,18 +462,111 @@ function FloorMarker({
   y,
   onSelect,
   selected,
+  onHoverStart,
+  onHoverEnd,
+  floorNumber,
 }: {
   floor: BuildingFloor3D;
   y: number;
   onSelect: (id: string) => void;
   selected: boolean;
+  onHoverStart: (floor: BuildingFloor3D, y: number, sx: number, sy: number) => void;
+  onHoverEnd: () => void;
+  floorNumber: number;
 }) {
+  const pulseRef = useRef<THREE.Mesh>(null);
+  const isFirstFloor = floorNumber === 1;
+  const markerY = isFirstFloor ? 0.1 : 0.02;
+
+  useFrame((state) => {
+    if (!pulseRef.current) return;
+    const t = state.clock.elapsedTime;
+    const wave = 0.6 + (Math.sin(t * 2.8) + 1) * 0.25;
+    pulseRef.current.scale.setScalar(wave);
+  });
+
   return (
-    <group position={[0, y, 0]} onClick={(e) => { e.stopPropagation(); onSelect(floor.id); }}>
-      <mesh position={[SCENE_TUNE.marker.railX, 0.12, SCENE_TUNE.marker.railZ]}>
-        <boxGeometry args={[0.08, 0.22, 1.45]} />
+    <group
+      position={[0, y, 0]}
+      onClick={(e) => { e.stopPropagation(); onSelect(floor.id); }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        onHoverStart(floor, y, e.clientX, e.clientY);
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        onHoverEnd();
+      }}
+    >
+      <mesh position={[SCENE_TUNE.marker.railX + 0.02, markerY, 1.39]}>
+        <boxGeometry args={[0.06, 0.16, 0.26]} />
         <meshStandardMaterial color={selected ? '#8fdfff' : '#3c7da3'} emissive={selected ? '#8fdfff' : '#000000'} emissiveIntensity={selected ? 0.16 : 0} />
       </mesh>
+      <mesh position={[SCENE_TUNE.marker.railX + 0.1, markerY, 1.38]}>
+        <sphereGeometry args={[0.07, 16, 16]} />
+        <meshStandardMaterial
+          color={selected ? '#ffe56a' : '#ffd34d'}
+          emissive={selected ? '#ffe56a' : '#ffcc33'}
+          emissiveIntensity={selected ? 1.05 : 0.75}
+        />
+      </mesh>
+      <mesh ref={pulseRef} position={[SCENE_TUNE.marker.railX + 0.1, markerY, 1.38]}>
+        <sphereGeometry args={[0.12, 16, 16]} />
+        <meshStandardMaterial color="#ffe56a" emissive="#ffd43b" emissiveIntensity={1.3} transparent opacity={0.28} />
+      </mesh>
+      <mesh
+        position={[SCENE_TUNE.marker.railX + 0.1, markerY, 1.38]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(floor.id);
+        }}
+      >
+        <sphereGeometry args={[0.22, 14, 14]} />
+        <meshBasicMaterial transparent opacity={0.01} depthWrite={false} />
+      </mesh>
+      {floorNumber > 1 && <Digit3D number={floorNumber} position={[SCENE_TUNE.marker.railX - 0.24, markerY + 0.01, 1.39]} />}
+    </group>
+  );
+}
+
+function Digit3D({ number, position }: { number: number; position: [number, number, number] }) {
+  const n = Math.max(1, Math.min(9, number));
+  const segmentsByDigit: Record<number, string[]> = {
+    1: ['tr', 'br'],
+    2: ['t', 'tr', 'm', 'bl', 'b'],
+    3: ['t', 'tr', 'm', 'br', 'b'],
+    4: ['tl', 'tr', 'm', 'br'],
+    5: ['t', 'tl', 'm', 'br', 'b'],
+    6: ['t', 'tl', 'm', 'bl', 'br', 'b'],
+    7: ['t', 'tr', 'br'],
+    8: ['t', 'tl', 'tr', 'm', 'bl', 'br', 'b'],
+    9: ['t', 'tl', 'tr', 'm', 'br', 'b'],
+  };
+  const on = new Set(segmentsByDigit[n] || segmentsByDigit[1]);
+  const seg = {
+    t: { p: [0, 0.06, 0], s: [0.12, 0.02, 0.02] },
+    m: { p: [0, 0, 0], s: [0.12, 0.02, 0.02] },
+    b: { p: [0, -0.06, 0], s: [0.12, 0.02, 0.02] },
+    tl: { p: [-0.05, 0.03, 0], s: [0.02, 0.06, 0.02] },
+    tr: { p: [0.05, 0.03, 0], s: [0.02, 0.06, 0.02] },
+    bl: { p: [-0.05, -0.03, 0], s: [0.02, 0.06, 0.02] },
+    br: { p: [0.05, -0.03, 0], s: [0.02, 0.06, 0.02] },
+  } as const;
+
+  return (
+    <group position={position}>
+      <mesh position={[0, 0, -0.002]}>
+        <boxGeometry args={[0.16, 0.16, 0.02]} />
+        <meshStandardMaterial color="#1b7fb1" emissive="#0f4765" emissiveIntensity={0.25} />
+      </mesh>
+      {Object.entries(seg).map(([k, v]) =>
+        on.has(k) ? (
+          <mesh key={k} position={v.p as [number, number, number]}>
+            <boxGeometry args={v.s as [number, number, number]} />
+            <meshStandardMaterial color="#ffffff" emissive="#bfeaff" emissiveIntensity={0.35} />
+          </mesh>
+        ) : null
+      )}
     </group>
   );
 }
@@ -536,9 +636,31 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
   const ordered = [...floors];
   const offset = (ordered.length - 1) * (SCENE_TUNE.building.floorStep / 2);
   const totalHeight = (Math.max(1, ordered.length) - 1) * SCENE_TUNE.building.floorStep;
+  const [hoveredFloor, setHoveredFloor] = useState<HoverInfo | null>(null);
+  const hoverHideTimer = useRef<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  function showTooltip(floor: BuildingFloor3D, y: number, clientX: number, clientY: number) {
+    if (hoverHideTimer.current) {
+      window.clearTimeout(hoverHideTimer.current);
+      hoverHideTimer.current = null;
+    }
+    const rect = wrapRef.current?.getBoundingClientRect();
+    const sx = rect ? clientX - rect.left : 0;
+    const sy = rect ? clientY - rect.top : 0;
+    setHoveredFloor({ floor, y, sx, sy });
+  }
+
+  function hideTooltipDelayed() {
+    if (hoverHideTimer.current) window.clearTimeout(hoverHideTimer.current);
+    hoverHideTimer.current = window.setTimeout(() => {
+      setHoveredFloor(null);
+      hoverHideTimer.current = null;
+    }, 180);
+  }
 
   return (
-    <div className="vh-canvas-wrap">
+    <div className="vh-canvas-wrap" ref={wrapRef}>
       <Canvas camera={{ position: [8.3, 4.9, 7.2], fov: 34 }}>
         <color attach="background" args={['#6ea9d0']} />
         <fog attach="fog" args={['#6ea9d0', 16, 42]} />
@@ -547,6 +669,7 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
         <pointLight position={[-7, 5, 6]} color="#d5f3ff" intensity={1.1} />
         <pointLight position={[7, 3, -6]} color="#a9d4ff" intensity={0.8} />
         <hemisphereLight args={['#e7f7ff', '#5d89aa', 0.6]} />
+        <pointLight position={[3.2, 1.8, 2.4]} color="#8fdfff" intensity={0.35} />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.45, 0]}>
           <planeGeometry args={[56, 56]} />
@@ -623,6 +746,9 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
               y={idx * SCENE_TUNE.building.floorStep}
               onSelect={onSelectFloor}
               selected={selectedFloorId === floor.id}
+              onHoverStart={(f, y, sx, sy) => showTooltip(f, y, sx, sy)}
+              onHoverEnd={hideTooltipDelayed}
+              floorNumber={idx + 1}
             />
           ))}
 
@@ -633,6 +759,29 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
         </group>
 
       </Canvas>
+      {hoveredFloor && (
+        <div
+          className="vh-floor-tooltip"
+          style={{
+            left: `${Math.min(Math.max(hoveredFloor.sx + 14, 12), 780)}px`,
+            top: `${Math.min(Math.max(hoveredFloor.sy - 18, 12), 520)}px`,
+          }}
+          onMouseEnter={() => {
+            if (hoverHideTimer.current) {
+              window.clearTimeout(hoverHideTimer.current);
+              hoverHideTimer.current = null;
+            }
+          }}
+          onMouseLeave={hideTooltipDelayed}
+        >
+          <div className="vh-floor-tooltip-line" />
+          <div className="vh-floor-tooltip-card">
+            <strong>{hoveredFloor.floor.label}</strong>
+            <span>{hoveredFloor.floor.pct}% ocupacao</span>
+            <button onClick={() => onSelectFloor(hoveredFloor.floor.id)}>Entrar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

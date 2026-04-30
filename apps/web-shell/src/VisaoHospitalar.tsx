@@ -439,11 +439,9 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
       const occupied = item.sectors.reduce((sum, s) => sum + s.occupied, 0);
       const pct = Math.round((occupied / total) * 100);
       const mainName = item.kind === 'UTI_UPC' ? 'UTI / UPC' : 'Internacao';
-      const suffix = item.sectors.length > 1 ? ` (${item.sectors.length} setores)` : '';
-
       models.push({
         id: `${unitSlug}_${toSlug(item.names.join('_'))}_f${floorNo}`,
-        label: `${floorNo}º Andar - ${mainName}${suffix}`,
+        label: `${floorNo}º Andar - ${mainName}`,
         kind: item.kind,
         occupied,
         total,
@@ -530,10 +528,6 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
 
           {mode === 'building' && (
             <div className="vh-building-real-wrap">
-              <div className="vh-building-info">
-                <strong>{floors.length} andares ativos</strong>
-                <span>Predio 3D interativo: clique no andar para detalhar</span>
-              </div>
               <div className="vh-building-layout">
                 <HospitalBuilding3D
                   floors={buildingFloors3d}
