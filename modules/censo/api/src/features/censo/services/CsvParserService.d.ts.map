@@ -1,0 +1,1 @@
+{"version":3,"file":"CsvParserService.d.ts","sourceRoot":"","sources":["CsvParserService.ts"],"names":[],"mappings":"AAEA,OAAO,KAAK,EAAmB,WAAW,EAA6B,MAAM,oBAAoB,CAAC;AAClG,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,qCAAqC,CAAC;AAiE5E,qBAAa,gBAAgB;IAC3B,OAAO,CAAC,UAAU,CAAmB;IACrC,OAAO,CAAC,cAAc,CAAS;gBAEnB,UAAU,EAAE,gBAAgB;IAO3B,YAAY,IAAI,OAAO,CAAC,WAAW,CAAC;CAiRlD"}

@@ -1,0 +1,48 @@
+import express from 'express';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import { fetchTasyData } from './services/tasyService';
+import { groupLeitosBySetor } from './utils/dataParser';
+
+const app = express();
+app.use(cors());
+
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: { origin: "*" } // Ajuste para o IP do seu React no futuro
+});
+
+// Cache básico para evitar queries redundantes no Tasy
+let lastCensoData: any = null;
+
+// Loop de atualização (O coração do Censo)
+const updateCenso = async () => {
+    try {
+        const rawData = await fetchTasyData(); // Busca no seu DB
+        const processedData = groupLeitosBySetor(rawData); // Agrupa por setor/unidade
+
+        // Só envia se houver mudança (opcional, mas poupa banda)
+        if (JSON.stringify(processedData) !== JSON.stringify(lastCensoData)) {
+            lastCensoData = processedData;
+            io.emit('censo_update', processedData);
+            console.log(`[${new Date().toISOString()}] Censo atualizado e emitido.`);
+        }
+    } catch (error) {
+        console.error("Erro ao processar censo:", error);
+    }
+};
+
+// Polling a cada 30 segundos (Configurável para sua necessidade)
+setInterval(updateCenso, 30000);
+
+io.on('connection', (socket) => {
+    console.log('Cliente conectado:', socket.id);
+    // Envia os dados atuais assim que o cliente conecta
+    if (lastCensoData) socket.emit('censo_update', lastCensoData);
+});
+
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, () => {
+    console.log(`Cérebro operando na porta ${PORT}`);
+});

@@ -1,0 +1,18 @@
+{
+  "name": "censo-vivo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "modules/jornada/api",
+    "modules/jornada/web",
+    "modules/censo/api",
+    "modules/censo/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -c auto -n orchestrator,jornada-api,jornada-web,censo-api,censo-web,web-shell \"npm run dev -w apps/api-orchestrator\" \"npm run dev -w modules/jornada/api\" \"npm run dev:jornada-web -w modules/jornada/web\" \"npm run dev:censo-api -w modules/censo/api\" \"npm run dev:censo-web -w modules/censo/web\" \"npm run dev -w apps/web-shell\"",
+    "build": "npm run build -w apps/api-orchestrator && npm run build -w apps/web-shell && npm run build -w modules/jornada/web && npm run build -w modules/censo/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
