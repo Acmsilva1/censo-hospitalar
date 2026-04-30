@@ -68,6 +68,17 @@ const STAGE_LABELS: Record<StageKey, string> = {
 };
 
 const STAGE_ORDER: StageKey[] = ['TRIAGEM', 'CONSULTA', 'LABORATORIO', 'IMAGEM', 'MEDICACAO', 'REAVALIACAO'];
+const BASE_UNITS: string[] = [
+  'ES - HOSPITAL VITORIA',
+  'ES - PS VV',
+  'RJ - PS CAMPO GRANDE',
+  'RJ - PS BOTAFOGO',
+  'RJ - PS BARRA DA TIJUCA',
+  'DF - PS SIG',
+  'DF - PS TAGUATINGA',
+  'MG BH GUTIERREZ - PS',
+  'MG - PAMPULHA',
+];
 
 function normalizeText(value: string) {
   return (value || '')
@@ -168,9 +179,23 @@ function matchJourneyUnit(hospital: string, units: string[]) {
 
 function displayUnitName(raw: string) {
   const t = normalizeText(raw);
-  if (t.includes('PS VV')) return 'ES - PS VV';
+  if (t.includes('PS VV') || t.includes('PS VILA VELHA') || t.includes('VILA VELHA')) return 'ES - PS VV';
   if (t.includes('HOSPITAL VITORIA') || (t.includes('PS') && t.includes('VITORIA'))) return 'ES - PS Vitoria';
   return raw;
+}
+
+function canonicalUnitKey(raw: string) {
+  const t = normalizeText(raw);
+  if (t.includes('PS VV') || t.includes('PS VILA VELHA') || t.includes('VILA VELHA')) return 'ES_PS_VV';
+  if (t.includes('HOSPITAL VITORIA') || (t.includes('PS') && t.includes('VITORIA'))) return 'ES_HOSPITAL_VITORIA';
+  if (t.includes('PS BOTAFOGO')) return 'RJ_PS_BOTAFOGO';
+  if (t.includes('PS CAMPO GRANDE')) return 'RJ_PS_CAMPO_GRANDE';
+  if (t.includes('PS BARRA DA TIJUCA')) return 'RJ_PS_BARRA_DA_TIJUCA';
+  if (t.includes('PS SIG')) return 'DF_PS_SIG';
+  if (t.includes('PS TAGUATINGA')) return 'DF_PS_TAGUATINGA';
+  if (t.includes('GUTIERREZ')) return 'MG_GUTIERREZ';
+  if (t.includes('PAMPULHA')) return 'MG_PAMPULHA';
+  return t;
 }
 
 export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarProps) {
@@ -188,52 +213,44 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
   useEffect(() => {
     let cancelled = false;
     setUnitsLoading(true);
-    Promise.all([
-      fetch(`${censoApiUrl}/api/hospitals`).then((r) => r.json()).catch(() => []),
-      fetch(`${jornadaApiUrl}/api/units`)
-        .then((r) => r.json())
-        .then((d) => {
-          setJornadaUnavailable(false);
-          return d;
-        })
-        .catch(() => {
-          setJornadaUnavailable(true);
-          return [];
-        }),
-    ])
-      .then(([censoList, jornadaList]) => {
+    fetch(`${censoApiUrl}/api/hospitals`)
+      .then((r) => r.json())
+      .catch(() => [])
+      .then((censoList) => {
         if (cancelled) return;
-        if (Array.isArray(jornadaList) && jornadaList.length > 0) setJornadaUnits(jornadaList.map(String));
-        const merged = [...(Array.isArray(censoList) ? censoList : []), ...(Array.isArray(jornadaList) ? jornadaList : [])]
+        const merged = [
+          ...(Array.isArray(censoList) ? censoList : []),
+          ...BASE_UNITS,
+        ]
           .filter(Boolean)
           .map(String);
-        const uniq = Array.from(new Set(merged));
+        const byNorm = new Map<string, string>();
+        for (const id of merged) {
+          const key = canonicalUnitKey(id);
+          if (!key) continue;
+          if (!byNorm.has(key)) byNorm.set(key, id);
+        }
+        const uniq = Array.from(byNorm.values());
         uniq.sort((a, b) => normalizeText(a).localeCompare(normalizeText(b)));
         const mapped = uniq.map((id) => ({ id, label: displayUnitName(id) }));
-        if (mapped.length > 0) {
-          setHospitals(mapped);
-        } else {
-          setHospitals([
-            { id: 'ES - HOSPITAL VITORIA', label: 'ES - PS Vitoria' },
-            { id: 'ES - PS VV', label: 'ES - PS VV' },
-            { id: 'RJ - PS CAMPO GRANDE', label: 'RJ - PS Campo Grande' },
-            { id: 'RJ - PS BOTAFOGO', label: 'RJ - PS Botafogo' },
-            { id: 'DF - PS SIG', label: 'DF - PS SIG' },
-            { id: 'MG BH GUTIERREZ - PS', label: 'MG - PS Gutierrez' },
-          ]);
+
+        const byLabel = new Map<string, UnitOption>();
+        for (const item of mapped) {
+          const labelKey = normalizeText(item.label);
+          if (!labelKey) continue;
+          if (!byLabel.has(labelKey)) byLabel.set(labelKey, item);
         }
+        setHospitals(Array.from(byLabel.values()));
         setUnitsLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
-          setHospitals([
-            { id: 'ES - HOSPITAL VITORIA', label: 'ES - PS Vitoria' },
-            { id: 'ES - PS VV', label: 'ES - PS VV' },
-            { id: 'RJ - PS CAMPO GRANDE', label: 'RJ - PS Campo Grande' },
-            { id: 'RJ - PS BOTAFOGO', label: 'RJ - PS Botafogo' },
-            { id: 'DF - PS SIG', label: 'DF - PS SIG' },
-            { id: 'MG BH GUTIERREZ - PS', label: 'MG - PS Gutierrez' },
-          ]);
+          setHospitals(
+            BASE_UNITS.map((id) => ({
+              id,
+              label: displayUnitName(id),
+            }))
+          );
           setUnitsLoading(false);
         }
       });
@@ -278,7 +295,16 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
 
     async function loadPsStats() {
       try {
-        const units = jornadaUnits;
+        let units = jornadaUnits;
+        if (!units.length) {
+          const unitsRes = await fetch(`${jornadaApiUrl}/api/units`);
+          const unitsJson = await unitsRes.json();
+          units = Array.isArray(unitsJson) ? unitsJson.map(String) : [];
+          if (units.length > 0) {
+            setJornadaUnits(units);
+            setJornadaUnavailable(false);
+          }
+        }
         if (!units.length) {
           setPsTotalActive(0);
           setPsStats(STAGE_ORDER.map((key) => ({ key, label: STAGE_LABELS[key], count: 0, pct: 0 })));

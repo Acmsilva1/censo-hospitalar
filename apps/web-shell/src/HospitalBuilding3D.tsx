@@ -1,6 +1,8 @@
-﻿import { Canvas } from '@react-three/fiber';
+﻿import { Canvas, useLoader } from '@react-three/fiber';
 import { memo, useMemo } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 type Band = 'low' | 'mid' | 'high';
 
@@ -20,18 +22,30 @@ type Props = {
   unitName?: string;
 };
 
-const bandColor: Record<Band, string> = {
-  low: '#24d7b2',
-  mid: '#f3c65f',
-  high: '#f67b46',
+// Ajustes rápidos de cena (edite aqui)
+const SCENE_TUNE = {
+  building: {
+    position: [0.55, 0, 0.28] as [number, number, number],
+    rotationY: -0.18,
+    modelOffset: [0.25, -0.3, 0.08] as [number, number, number],
+    modelRotationY: -0.14,
+    modelScale: 2.32,
+    floorStep: 0.88,
+  },
+  marker: {
+    x: 2.15,
+    z: 0.56,
+    scale: 0.36,
+    railX: 2.02,
+    railZ: 0.1,
+  },
+  sign: {
+    position: [2.05, -2.08, 3.85] as [number, number, number],
+    rotationY: -0.08,
+    labelScale: 0.54,
+  },
 };
-
-function windowCount(total: number) {
-  if (total <= 8) return 8;
-  if (total <= 16) return 12;
-  if (total <= 28) return 16;
-  return 20;
-}
+const USE_IMPORTED_MODEL = false;
 
 function extractFloorNumber(label: string) {
   const m = label.match(/^(\d+)/);
@@ -91,7 +105,193 @@ function SceneLabel({
   return <sprite position={position} scale={[2.8 * scale, 0.7 * scale, 1]} material={material} />;
 }
 
-function Floor3D({
+function ImportedBuilding() {
+  const gltf = useLoader(GLTFLoader, '/models/predio.glb', (loader) => {
+    const draco = new DRACOLoader();
+    draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+    loader.setDRACOLoader(draco);
+  });
+  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+
+  return (
+    <group
+      position={SCENE_TUNE.building.modelOffset}
+      rotation={[0, SCENE_TUNE.building.modelRotationY, 0]}
+      scale={[SCENE_TUNE.building.modelScale, SCENE_TUNE.building.modelScale, SCENE_TUNE.building.modelScale]}
+    >
+      <primitive object={scene} />
+    </group>
+  );
+}
+
+function ProceduralHospital({ floorsCount }: { floorsCount: number }) {
+  const levels = Math.max(2, floorsCount);
+  const baseY = -0.72;
+  return (
+    <group position={[0.1, 0.14, 0.02]}>
+      {/* Fundação alinhada ao solo */}
+      <mesh position={[0.12, baseY, -0.04]}>
+        <boxGeometry args={[5.3, 0.28, 2.72]} />
+        <meshStandardMaterial color="#9eb3c1" roughness={0.84} metalness={0.02} />
+      </mesh>
+      <mesh position={[0.14, baseY + 0.18, -0.06]}>
+        <boxGeometry args={[5.05, 0.08, 2.5]} />
+        <meshStandardMaterial color="#8ea4b4" roughness={0.8} metalness={0.02} />
+      </mesh>
+      <mesh position={[0, -0.2, 0]}>
+        <boxGeometry args={[5.5, 0.34, 3.0]} />
+        <meshStandardMaterial color="#d9e1e9" roughness={0.72} metalness={0.06} />
+      </mesh>
+
+      {/* Portaria frontal */}
+      <mesh position={[0.05, -0.45, 1.58]}>
+        <boxGeometry args={[2.4, 0.22, 0.28]} />
+        <meshStandardMaterial color="#f2f7fb" roughness={0.34} metalness={0.12} />
+      </mesh>
+      <mesh position={[0.05, -0.62, 1.64]}>
+        <boxGeometry args={[2.05, 0.4, 0.09]} />
+        <meshStandardMaterial color="#0a2033" emissive="#0a2033" emissiveIntensity={0.22} roughness={0.18} metalness={0.32} />
+      </mesh>
+      <mesh position={[0.05, -0.62, 1.69]}>
+        <boxGeometry args={[1.1, 0.24, 0.03]} />
+        <meshStandardMaterial color="#d8eaf7" roughness={0.16} metalness={0.42} />
+      </mesh>
+      <mesh position={[-0.26, -0.62, 1.72]}>
+        <boxGeometry args={[0.34, 0.24, 0.02]} />
+        <meshStandardMaterial color="#f9fdff" roughness={0.18} metalness={0.45} />
+      </mesh>
+      <mesh position={[0.36, -0.62, 1.72]}>
+        <boxGeometry args={[0.34, 0.24, 0.02]} />
+        <meshStandardMaterial color="#f9fdff" roughness={0.18} metalness={0.45} />
+      </mesh>
+      <mesh position={[0.05, -0.78, 1.48]}>
+        <boxGeometry args={[1.9, 0.06, 0.72]} />
+        <meshStandardMaterial color="#c8d7e2" roughness={0.86} metalness={0.03} />
+      </mesh>
+      <mesh position={[0.05, -0.75, 1.82]}>
+        <boxGeometry args={[1.25, 0.03, 0.28]} />
+        <meshStandardMaterial color="#e6eff6" roughness={0.82} metalness={0.04} />
+      </mesh>
+
+      {Array.from({ length: levels }).map((_, i) => {
+        const y = i * 0.88 + 0.3;
+        const isTopLevel = i === levels - 1;
+        return (
+          <group key={`level-${i}`} position={[0, y, 0]}>
+            {/* Laje branca */}
+            <mesh position={[0, 0.34, 0]}>
+              <boxGeometry args={[5.42, 0.1, 2.97]} />
+              <meshStandardMaterial
+                color={isTopLevel ? '#0a0d12' : '#f8fbff'}
+                emissive={isTopLevel ? '#0a0d12' : '#000000'}
+                emissiveIntensity={isTopLevel ? 0.25 : 0}
+                roughness={isTopLevel ? 0.62 : 0.34}
+                metalness={isTopLevel ? 0.08 : 0.12}
+              />
+            </mesh>
+            <mesh position={[0, 0.27, 0]}>
+              <boxGeometry args={[5.24, 0.08, 2.82]} />
+              <meshStandardMaterial
+                color={isTopLevel ? '#121821' : '#dce5ec'}
+                roughness={isTopLevel ? 0.7 : 0.4}
+                metalness={isTopLevel ? 0.04 : 0.08}
+              />
+            </mesh>
+            {/* Faixa de vidro frontal */}
+            <mesh position={[0, 0.02, 1.37]}>
+              <boxGeometry args={[5.02, 0.52, 0.06]} />
+              <meshStandardMaterial color="#0f4f7a" emissive="#0c416a" emissiveIntensity={0.24} roughness={0.12} metalness={0.45} />
+            </mesh>
+            {/* Faixa de vidro lateral */}
+            <mesh position={[2.47, 0.02, 0]} rotation={[0, Math.PI / 2, 0]}>
+              <boxGeometry args={[2.55, 0.52, 0.06]} />
+              <meshStandardMaterial color="#0f4f7a" emissive="#0c416a" emissiveIntensity={0.22} roughness={0.12} metalness={0.45} />
+            </mesh>
+            {/* Pilares frontais */}
+            {[-2.15, -0.72, 0.72, 2.15].map((x) => (
+              <mesh key={`pillar-${i}-${x}`} position={[x, 0.02, 1.32]}>
+                <boxGeometry args={[0.08, 0.52, 0.12]} />
+                <meshStandardMaterial color="#e5eaf0" roughness={0.4} metalness={0.12} />
+              </mesh>
+            ))}
+            {/* Montantes de vidro para realismo */}
+            {[-2.2, -1.5, -0.8, -0.1, 0.6, 1.3, 2.0].map((x) => (
+              <mesh key={`mullion-f-${i}-${x}`} position={[x, 0.02, 1.39]}>
+                <boxGeometry args={[0.03, 0.5, 0.02]} />
+                <meshStandardMaterial color="#c4d6e2" roughness={0.25} metalness={0.35} />
+              </mesh>
+            ))}
+            {[-0.9, -0.2, 0.5].map((z) => (
+              <mesh key={`mullion-s-${i}-${z}`} position={[2.49, 0.02, z]} rotation={[0, Math.PI / 2, 0]}>
+                <boxGeometry args={[0.03, 0.5, 0.02]} />
+                <meshStandardMaterial color="#c4d6e2" roughness={0.25} metalness={0.35} />
+              </mesh>
+            ))}
+          </group>
+        );
+      })}
+
+      {/* Cobertura integrada ao último pavimento */}
+      <mesh position={[0, levels * 0.88 + 0.39, 0]}>
+        <boxGeometry args={[5.44, 0.1, 2.98]} />
+        <meshStandardMaterial color="#edf4fa" roughness={0.32} metalness={0.14} />
+      </mesh>
+      <mesh position={[0.08, levels * 0.88 + 0.45, -0.04]}>
+        <boxGeometry args={[4.9, 0.03, 2.5]} />
+        <meshStandardMaterial color="#d6e2eb" roughness={0.42} metalness={0.08} />
+      </mesh>
+
+      {/* Colunas da cobertura para evitar efeito de peça solta */}
+      {[
+        [-2.25, 0, 1.18],
+        [-0.75, 0, 1.18],
+        [0.75, 0, 1.18],
+        [2.25, 0, 1.18],
+        [-2.25, 0, -1.18],
+        [-0.75, 0, -1.18],
+        [0.75, 0, -1.18],
+        [2.25, 0, -1.18],
+      ].map((p, idx) => (
+        <mesh key={`roof-col-${idx}`} position={[p[0], levels * 0.88 + 0.17, p[2]]}>
+          <boxGeometry args={[0.08, 0.48, 0.08]} />
+          <meshStandardMaterial color="#dce7ef" roughness={0.36} metalness={0.18} />
+        </mesh>
+      ))}
+      {[
+        [-2.25, 0, 1.18],
+        [-0.75, 0, 1.18],
+        [0.75, 0, 1.18],
+        [2.25, 0, 1.18],
+        [-2.25, 0, -1.18],
+        [-0.75, 0, -1.18],
+        [0.75, 0, -1.18],
+        [2.25, 0, -1.18],
+      ].map((p, idx) => (
+        <mesh key={`roof-cap-${idx}`} position={[p[0], levels * 0.88 + 0.305, p[2]]}>
+          <boxGeometry args={[0.2, 0.05, 0.2]} />
+          <meshStandardMaterial color="#020406" emissive="#020406" emissiveIntensity={0.25} roughness={0.82} metalness={0.04} />
+        </mesh>
+      ))}
+      {[
+        [-2.25, 0, 1.18],
+        [-0.75, 0, 1.18],
+        [0.75, 0, 1.18],
+        [2.25, 0, 1.18],
+        [-2.25, 0, -1.18],
+        [-0.75, 0, -1.18],
+        [0.75, 0, -1.18],
+        [2.25, 0, -1.18],
+      ].map((p, idx) => (
+        <mesh key={`roof-ring-${idx}`} position={[p[0], levels * 0.88 + 0.21, p[2]]}>
+          <boxGeometry args={[0.14, 0.08, 0.14]} />
+          <meshStandardMaterial color="#000000" emissive="#000000" emissiveIntensity={0.38} roughness={0.9} metalness={0.02} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function FloorMarker({
   floor,
   y,
   onSelect,
@@ -102,78 +302,12 @@ function Floor3D({
   onSelect: (id: string) => void;
   selected: boolean;
 }) {
-  const color = bandColor[floor.band];
-  const floorNumber = extractFloorNumber(floor.label);
-  const slots = windowCount(floor.occupied + floor.free);
-  const lit = Math.max(1, Math.round((slots * floor.pct) / 100));
-
-  const windows = useMemo(() => {
-    return Array.from({ length: slots }).map((_, i) => {
-      const col = i % 10;
-      const row = Math.floor(i / 10);
-      const x = -2.2 + col * 0.48;
-      const z = 1.41;
-      const yLocal = -0.14 - row * 0.2;
-      const active = i < lit;
-      return { key: `${floor.id}-w-${i}`, x, y: yLocal, z, active };
-    });
-  }, [floor.id, slots, lit]);
-
   return (
     <group position={[0, y, 0]} onClick={(e) => { e.stopPropagation(); onSelect(floor.id); }}>
-      <mesh>
-        <boxGeometry args={[5.4, 0.9, 2.8]} />
-        <meshStandardMaterial color={selected ? '#2f6486' : '#2a587a'} roughness={0.36} metalness={0.3} />
+      <mesh position={[SCENE_TUNE.marker.railX, 0.12, SCENE_TUNE.marker.railZ]}>
+        <boxGeometry args={[0.08, 0.22, 1.45]} />
+        <meshStandardMaterial color={selected ? '#8fdfff' : '#3c7da3'} emissive={selected ? '#8fdfff' : '#000000'} emissiveIntensity={selected ? 0.16 : 0} />
       </mesh>
-
-      <mesh position={[0, 0.45, 0]}>
-        <boxGeometry args={[5.5, 0.08, 2.9]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={selected ? 0.4 : 0.25} />
-      </mesh>
-
-      <mesh position={[0, 0.08, 1.42]}>
-        <planeGeometry args={[5.1, 0.55]} />
-        <meshStandardMaterial color="#234e6c" roughness={0.18} metalness={0.55} />
-      </mesh>
-      <mesh position={[0, 0.08, -1.42]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[5.1, 0.55]} />
-        <meshStandardMaterial color="#214b68" roughness={0.18} metalness={0.55} />
-      </mesh>
-
-      {[-2.2, -1.1, 0, 1.1, 2.2].map((x) => (
-        <mesh key={`${floor.id}-col-${x}`} position={[x, 0.08, 1.425]}>
-          <boxGeometry args={[0.03, 0.55, 0.04]} />
-          <meshStandardMaterial color="#315d7a" />
-        </mesh>
-      ))}
-
-      {windows.map((w) => (
-        <mesh key={w.key} position={[w.x, w.y, w.z]}>
-          <boxGeometry args={[0.38, 0.14, 0.02]} />
-          <meshStandardMaterial
-            color={w.active ? color : '#0a1a27'}
-            emissive={w.active ? color : '#000000'}
-            emissiveIntensity={w.active ? (selected ? 1.25 : 0.95) : 0}
-          />
-        </mesh>
-      ))}
-      {windows.map((w) => (
-        <mesh key={`${w.key}-back`} position={[w.x, w.y, -w.z]}>
-          <boxGeometry args={[0.38, 0.14, 0.02]} />
-          <meshStandardMaterial
-            color={w.active ? color : '#0a1a27'}
-            emissive={w.active ? color : '#000000'}
-            emissiveIntensity={w.active ? (selected ? 1.0 : 0.7) : 0}
-          />
-        </mesh>
-      ))}
-
-      {/* Identificador externo do andar (compacto) */}
-      <mesh position={[2.72, 0.18, 0]}>
-        <boxGeometry args={[0.18, 0.4, 2.5]} />
-        <meshStandardMaterial color={selected ? '#8fdfff' : '#3c7da3'} emissive={selected ? '#8fdfff' : '#000000'} emissiveIntensity={selected ? 0.22 : 0} />
-      </mesh>
-      <SceneLabel text={`${floorNumber}º`} position={[2.88, 0.2, 0.8]} scale={0.47} bg="#0b2238ee" />
     </group>
   );
 }
@@ -241,13 +375,13 @@ function CarLowPoly({
 
 export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onSelectFloor, selectedFloorId, unitName }: Props) {
   const ordered = [...floors];
-  const offset = (ordered.length - 1) * 0.52;
-  const totalHeight = (Math.max(1, ordered.length) - 1) * 1.03;
+  const offset = (ordered.length - 1) * (SCENE_TUNE.building.floorStep / 2);
+  const totalHeight = (Math.max(1, ordered.length) - 1) * SCENE_TUNE.building.floorStep;
   const bannerText = (unitName || 'UNIDADE').replace(/\s*-\s*PS.*$/i, '').slice(0, 26);
 
   return (
     <div className="vh-canvas-wrap">
-      <Canvas camera={{ position: [8.7, 5.6, 8.3], fov: 35 }}>
+      <Canvas camera={{ position: [8.3, 4.9, 7.2], fov: 34 }}>
         <color attach="background" args={['#6ea9d0']} />
         <fog attach="fog" args={['#6ea9d0', 16, 42]} />
         <ambientLight intensity={1.05} />
@@ -265,10 +399,6 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
           <sphereGeometry args={[20, 32, 32]} />
           <meshStandardMaterial color="#8bc3e8" emissive="#8bc3e8" emissiveIntensity={0.12} side={1} />
         </mesh>
-        <mesh position={[10, 9.8, -14]}>
-          <sphereGeometry args={[2.4, 18, 18]} />
-          <meshStandardMaterial color="#eaf7ff" emissive="#eaf7ff" emissiveIntensity={0.6} />
-        </mesh>
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.437, 0.4]}>
           <planeGeometry args={[13.6, 11.6]} />
@@ -280,6 +410,11 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
           <meshStandardMaterial color="#9bb8cc" />
         </mesh>
 
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.434, 0.4]}>
+          <planeGeometry args={[10.2, 8.2]} />
+          <meshStandardMaterial color="#b8cad8" />
+        </mesh>
+
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.43, -7.8]}>
           <planeGeometry args={[36, 3.0]} />
           <meshStandardMaterial color="#4f6f84" />
@@ -288,46 +423,6 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
           <planeGeometry args={[3.0, 29]} />
           <meshStandardMaterial color="#516f83" />
         </mesh>
-
-        {[-14, -10, -6, -2, 2, 6, 10, 14].map((x) => (
-          <mesh key={`lane-h-${x}`} rotation={[-Math.PI / 2, 0, 0]} position={[x, -2.425, -7.8]}>
-            <planeGeometry args={[1.6, 0.08]} />
-            <meshStandardMaterial color="#d8e8f4" emissive="#d8e8f4" emissiveIntensity={0.25} />
-          </mesh>
-        ))}
-
-        {[-10, -6, -2, 2, 6, 10].map((z) => (
-          <mesh key={`lane-v-${z}`} rotation={[-Math.PI / 2, 0, 0]} position={[9.4, -2.425, z]}>
-            <planeGeometry args={[0.08, 1.5]} />
-            <meshStandardMaterial color="#d8e8f4" emissive="#d8e8f4" emissiveIntensity={0.25} />
-          </mesh>
-        ))}
-
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-5.8, -2.432, 1.1]}>
-          <planeGeometry args={[4.4, 8.8]} />
-          <meshStandardMaterial color="#8faec4" />
-        </mesh>
-        {[-2.5, -1.1, 0.3, 1.7, 3.1].map((z, i) => (
-          <mesh key={`park-${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[-5.8, -2.426, z]}>
-            <planeGeometry args={[3.8, 0.05]} />
-            <meshStandardMaterial color="#d7e6f2" />
-          </mesh>
-        ))}
-
-        {[
-          [-10.2, -2.0, -8.3, 2.6, 2.2, 2.6],
-          [-6.8, -2.0, -9.5, 3.2, 1.8, 2.3],
-          [-11.4, -2.0, 7.8, 2.8, 2.4, 2.6],
-          [10.6, -2.0, -8.2, 2.8, 2.6, 2.8],
-          [9.6, -2.0, 7.7, 3.0, 2.1, 2.4],
-          [0, -2.0, -12, 4.6, 2.8, 2.8],
-          [0, -2.0, 11.5, 4.2, 2.3, 2.6],
-        ].map((b, i) => (
-          <mesh key={`city-${i}`} position={[b[0], b[1], b[2]]}>
-            <boxGeometry args={[b[3], b[4], b[5]]} />
-            <meshStandardMaterial color="#86aac4" roughness={0.58} metalness={0.15} />
-          </mesh>
-        ))}
 
         <CarLowPoly x={8.5} y={-2.08} z={-6.2} color="#e35d6a" />
         <CarLowPoly x={10.2} y={-2.08} z={4.2} color="#4ea6ff" rotY={Math.PI / 2} />
@@ -338,55 +433,47 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
         <TreeLowPoly x={-13} y={-2.05} z={-3} />
         <TreeLowPoly x={14} y={-2.05} z={5} />
         <TreeLowPoly x={13} y={-2.05} z={-2} />
-        <TreeLowPoly x={4} y={-2.05} z={-14} />
-        <TreeLowPoly x={-4} y={-2.05} z={14} />
-        <TreeLowPoly x={-8.5} y={-2.05} z={8.5} scale={0.95} />
-        <TreeLowPoly x={11.5} y={-2.05} z={-10.2} scale={0.95} />
 
-        <group rotation={[0.03, -0.24, 0]} position={[0.6, -offset, 0.35]}>
+        {/* Entorno com volume leve para mais realismo */}
+        <mesh position={[-6.7, -1.72, -4.8]}>
+          <boxGeometry args={[2.4, 2.8, 2.2]} />
+          <meshStandardMaterial color="#7f9eb3" roughness={0.6} metalness={0.08} />
+        </mesh>
+        <mesh position={[-8.6, -1.55, -4.7]}>
+          <boxGeometry args={[1.1, 3.2, 2.0]} />
+          <meshStandardMaterial color="#8ba9bc" roughness={0.58} metalness={0.08} />
+        </mesh>
+        <mesh position={[10.7, -1.85, -3.8]}>
+          <boxGeometry args={[3.3, 2.4, 2.8]} />
+          <meshStandardMaterial color="#88a7bc" roughness={0.6} metalness={0.07} />
+        </mesh>
+
+        <group
+          rotation={[0.02, SCENE_TUNE.building.rotationY, 0]}
+          position={[SCENE_TUNE.building.position[0], -offset + SCENE_TUNE.building.position[1], SCENE_TUNE.building.position[2]]}
+        >
+          {USE_IMPORTED_MODEL ? (
+            <ImportedBuilding />
+          ) : (
+            <ProceduralHospital floorsCount={ordered.length} />
+          )}
+
           {ordered.map((floor, idx) => (
-            <Floor3D
+            <FloorMarker
               key={floor.id}
               floor={floor}
-              y={idx * 1.03}
+              y={idx * SCENE_TUNE.building.floorStep}
               onSelect={onSelectFloor}
               selected={selectedFloorId === floor.id}
             />
           ))}
 
-          {/* Perfil do edifício no topo para dar acabamento */}
-          <mesh position={[0, totalHeight + 0.52, 0]}>
-            <boxGeometry args={[5.7, 0.12, 3.05]} />
+          <mesh position={[0, totalHeight + 0.42, 0]}>
+            <boxGeometry args={[5.7, 0.08, 3.05]} />
             <meshStandardMaterial color="#9ad9d1" metalness={0.2} roughness={0.35} />
           </mesh>
         </group>
 
-        {/* Placa lateral grande (estilo hotel/cinema) */}
-        <group position={[-1.15, -2.08, 4.55]} rotation={[0, -0.02, 0]}>
-          <mesh position={[0, 0.95, 0]}>
-            <boxGeometry args={[0.18, 1.75, 0.18]} />
-            <meshStandardMaterial color="#3f5f78" metalness={0.25} roughness={0.45} />
-          </mesh>
-          <mesh position={[0, 1.86, 0]}>
-            <boxGeometry args={[0.54, 0.14, 0.54]} />
-            <meshStandardMaterial color="#23445f" metalness={0.22} roughness={0.42} />
-          </mesh>
-          <mesh position={[1.18, 1.86, 0]}>
-            <boxGeometry args={[2.15, 0.82, 0.12]} />
-            <meshStandardMaterial color="#112f49" emissive="#112f49" emissiveIntensity={0.28} />
-          </mesh>
-          <mesh position={[1.18, 1.86, 0.08]}>
-            <boxGeometry args={[2.0, 0.7, 0.02]} />
-            <meshStandardMaterial color="#4fc3f7" emissive="#4fc3f7" emissiveIntensity={0.35} />
-          </mesh>
-          <SceneLabel
-            text={bannerText}
-            position={[1.18, 1.86, 0.1]}
-            scale={0.56}
-            bg="#0f3756f2"
-            fg="#f3fbff"
-          />
-        </group>
       </Canvas>
     </div>
   );

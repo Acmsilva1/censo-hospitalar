@@ -276,7 +276,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
     radial-gradient(circle at 85% 8%, #a5f3fc2e, transparent 36%),
     linear-gradient(140deg, #0b263b 0%, #11324c 54%, #123a57 100%);
   color: #ecf4ff;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .vh-units {
@@ -346,11 +346,12 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 }
 
 .vh-viewer {
-  min-height: 100%;
+  height: 100%;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow: hidden;
 }
 
 .vh-topbar {
@@ -403,6 +404,8 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  flex: 1;
+  min-height: 0;
 }
 
 .vh-building-info {
@@ -423,7 +426,8 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 
 .vh-canvas-wrap {
   width: 100%;
-  height: clamp(620px, 74vh, 860px);
+  height: 100%;
+  min-height: 0;
   margin: 0 auto;
   border: 1px solid #8ddfff30;
   border-radius: 14px;
@@ -438,6 +442,8 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 14px;
   align-items: start;
+  flex: 1;
+  min-height: 0;
 }
 
 .vh-outside-legend {
@@ -445,7 +451,8 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   background: linear-gradient(160deg, #143752db 0%, #112c44dd 100%);
   border-radius: 12px;
   padding: 10px;
-  max-height: clamp(620px, 74vh, 860px);
+  height: 100%;
+  max-height: none;
   overflow: auto;
 }
 
@@ -958,7 +965,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
     grid-template-columns: 1fr;
   }
   .vh-canvas-wrap {
-    height: 520px;
+    height: 100%;
   }
   .vh-outside-legend { max-height: none; }
   .vh-kpi-cloud {
