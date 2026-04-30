@@ -31,6 +31,9 @@ export default function SectorBackgroundNode({ data }: any) {
   const hasStep = !!data.stepData
   const isActive = data.active
   const isFinished = hasStep && !isActive
+  const stepKey = data.stepData?.step
+  const isAlta = stepKey === 'ALTA'
+  const isInternacao = stepKey === 'INTERNACAO'
   
   const timeStr = hasStep ? fmtTime(data.stepData.time) : null
   const endTimeStr = hasStep && data.stepData.endTime ? fmtTime(data.stepData.endTime) : null
@@ -71,6 +74,10 @@ export default function SectorBackgroundNode({ data }: any) {
         border transition-all duration-500 relative backdrop-blur-md
         ${statusClass || (isActive
             ? 'border-dash-live shadow-[0_0_30px_rgba(45,224,185,0.3)] bg-dash-live/10'
+            : isAlta
+              ? 'border-amber-300/80 bg-amber-400/10 shadow-[0_0_24px_rgba(250,204,21,0.45)] animate-pulse'
+              : isInternacao
+                ? 'border-orange-300/80 bg-orange-500/10 shadow-[0_0_24px_rgba(249,115,22,0.45)] animate-pulse'
             : isFinished
               ? 'border-dash-live/30 bg-white/5 opacity-100 shadow-[0_0_15px_rgba(45,224,185,0.05)]'
               : 'border-app-border bg-black/40 opacity-40 grayscale-[0.5]')
@@ -89,13 +96,21 @@ export default function SectorBackgroundNode({ data }: any) {
           </div>
         )}
         {/* Animated Background Pulse for Active */}
-        {isActive && (
-          <div className="absolute inset-0 bg-dash-live/10 animate-pulse pointer-events-none" />
+        {(isActive || isAlta || isInternacao) && (
+          <div className={`absolute inset-0 animate-pulse pointer-events-none ${
+            isAlta
+              ? 'bg-amber-300/10'
+              : isInternacao
+                ? 'bg-orange-400/10'
+                : 'bg-dash-live/10'
+          }`} />
         )}
 
         {/* Finished Checkmark */}
         {isFinished && (
-          <div className="absolute top-2 right-3 text-dash-live drop-shadow-[0_0_5px_rgba(45,224,185,0.8)]">
+          <div className={`absolute top-2 right-3 drop-shadow-[0_0_5px_rgba(45,224,185,0.8)] ${
+            isAlta ? 'text-amber-300' : isInternacao ? 'text-orange-300' : 'text-dash-live'
+          }`}>
             <CheckCircle2 size={16} strokeWidth={3} />
           </div>
         )}
@@ -103,7 +118,7 @@ export default function SectorBackgroundNode({ data }: any) {
         <div className="relative z-10 flex flex-col items-center gap-2 mt-2">
           <div className={`
             p-2 rounded-lg transition-all duration-500
-            ${statusColor ? '' : isActive ? 'bg-dash-live text-[#0B0E14] shadow-[0_0_10px_var(--dash-live)]' : 'bg-black/20 text-[#3a3f58]'}
+            ${statusColor ? '' : isAlta ? 'bg-amber-300/20 text-amber-200 shadow-[0_0_16px_rgba(250,204,21,0.65)] animate-pulse' : isInternacao ? 'bg-orange-400/20 text-orange-200 shadow-[0_0_16px_rgba(249,115,22,0.65)] animate-pulse' : isActive ? 'bg-dash-live text-[#0B0E14] shadow-[0_0_10px_var(--dash-live)]' : 'bg-black/20 text-[#3a3f58]'}
             ${isFinished && !statusColor ? 'text-dash-live !bg-dash-live/10' : ''}
           `} style={statusColor ? { backgroundColor: statusColor, color: '#000', boxShadow: `0 0 10px ${statusColor}` } : {}}>
             <div className="relative">

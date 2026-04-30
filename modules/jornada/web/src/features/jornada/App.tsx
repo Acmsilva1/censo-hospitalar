@@ -3,6 +3,7 @@ import { API_BASE } from '../../shared/lib/apiBase'
 import MapFlow from './components/MapFlow'
 import StepDetailModal from './components/StepDetailModal'
 import { PatientQueueRow } from './components/PatientQueueRow'
+import { isInternacaoOutcome } from './lib/internacaoOutcome'
 import { HeartPulse, Activity, ChevronLeft, ChevronRight, Map as MapIcon, Pill, Beaker, Camera, RefreshCw, Timer, Search } from 'lucide-react'
 
 export type PatientSummary = {
@@ -88,6 +89,7 @@ export default function App() {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [patientPanelOpen, setPatientPanelOpen] = useState(false)
   const [panelSearchTerm, setPanelSearchTerm] = useState('')
+  const [panelOutcomeFilter, setPanelOutcomeFilter] = useState<'all' | 'alta' | 'internacao'>('all')
   const [apiLoading, setApiLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
 
@@ -221,6 +223,7 @@ export default function App() {
   // Limpa filtro local ao trocar de unidade
   useEffect(() => {
     setPanelSearchTerm('')
+    setPanelOutcomeFilter('all')
   }, [selectedUnit])
 
   // Carrega pacientes ao mudar unidade
@@ -345,13 +348,25 @@ export default function App() {
   }, [units])
 
   const panelFilteredPatients = useMemo(() => {
-    if (!panelSearchTerm.trim()) return patients
     const s = panelSearchTerm.toLowerCase().trim()
-    return patients.filter(
-      (p) =>
-        String(p.PACIENTE).toLowerCase().includes(s) || String(p.NR_ATENDIMENTO).includes(s)
-    )
-  }, [patients, panelSearchTerm])
+    return patients.filter((p) => {
+      const byText =
+        !s ||
+        String(p.PACIENTE).toLowerCase().includes(s) ||
+        String(p.NR_ATENDIMENTO).includes(s)
+
+      if (!byText) return false
+      if (panelOutcomeFilter === 'all') return true
+
+      const internacao =
+        typeof p.outcomeInternacao === 'boolean'
+          ? p.outcomeInternacao
+          : isInternacaoOutcome(p as unknown as Record<string, unknown>)
+
+      const isAlta = !internacao && Boolean(p.DT_ALTA && String(p.DT_ALTA) !== 'NULL')
+      return panelOutcomeFilter === 'internacao' ? internacao : isAlta
+    })
+  }, [patients, panelSearchTerm, panelOutcomeFilter])
 
   const handleSelectPatient = (patient: PatientSummary) => {
     setSelectedPatient(patient)
@@ -564,6 +579,31 @@ export default function App() {
               <div className="shrink-0 border-b border-white/10 px-3 py-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-dash-live">Fila no momento</p>
                 <p className="truncate text-[10px] font-bold text-white/90">{selectedUnit}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-app-muted">Filtro</span>
+                  <button
+                    type="button"
+                    onClick={() => setPanelOutcomeFilter((v) => (v === 'alta' ? 'all' : 'alta'))}
+                    className={`text-[8px] font-black px-2.5 py-1 rounded-md border transition ${
+                      panelOutcomeFilter === 'alta'
+                        ? 'bg-yellow-400 text-[#1a1a1a] border-yellow-200 shadow-[0_0_14px_rgba(250,204,21,0.75)]'
+                        : 'bg-yellow-400/10 text-yellow-300 border-yellow-400/30'
+                    }`}
+                  >
+                    ALTA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPanelOutcomeFilter((v) => (v === 'internacao' ? 'all' : 'internacao'))}
+                    className={`text-[8px] font-black px-2.5 py-1 rounded-md border transition ${
+                      panelOutcomeFilter === 'internacao'
+                        ? 'bg-orange-500 text-white border-orange-200 shadow-[0_0_14px_rgba(249,115,22,0.75)]'
+                        : 'bg-orange-500/10 text-orange-300 border-orange-400/30'
+                    }`}
+                  >
+                    INTERNACAO
+                  </button>
+                </div>
               </div>
               <div className="shrink-0 border-b border-white/10 px-3 py-2">
                 <div className="relative flex items-center rounded-xl border border-white/10 bg-black/40 px-3 py-2 focus-within:border-dash-live/40">

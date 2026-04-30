@@ -159,7 +159,7 @@ app.register(async (instance) => {
   });
 });
 
-const port = Number(process.env.ORCHESTRATOR_PORT || 3210);
+const port = Number(process.env.ORCHESTRATOR_PORT || 3020);
 app.listen({ host: '0.0.0.0', port }).catch((err) => {
   app.log.error(err);
   process.exit(1);

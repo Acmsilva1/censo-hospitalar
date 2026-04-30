@@ -50,6 +50,8 @@ const Dashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBed, setSelectedBed] = useState<Bed | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [hospitalMenuOpen, setHospitalMenuOpen] = useState(false);
+  const hospitalMenuRef = useRef<HTMLDivElement | null>(null);
   
   const { data, loading, error, hospitals, lastUpdate, nextUpdate, stats } = useCenso(activeHospital);
   const isFirstLoad = useRef(true);
@@ -114,6 +116,24 @@ const Dashboard: React.FC = () => {
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   ) : [];
   const currentFloorKey = activeFloor && floorKeys.includes(activeFloor) ? activeFloor : floorKeys[0];
+  const hospitalsByRegional = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const hospital of hospitals) {
+      const formatted = formatHospitalName(hospital);
+      const regional = (formatted.split(' - ')[0] || 'OUTROS').trim();
+      if (!groups.has(regional)) groups.set(regional, []);
+      groups.get(regional)!.push(hospital);
+    }
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([regional, items]) => ({
+        regional,
+        items: items.sort((h1, h2) =>
+          formatHospitalName(h1).localeCompare(formatHospitalName(h2), 'pt-BR', { sensitivity: 'base' })
+        ),
+      }));
+  }, [hospitals]);
 
   const currentFloorData = filteredData && currentFloorKey ? filteredData[currentFloorKey] : null;
 
@@ -123,6 +143,17 @@ const Dashboard: React.FC = () => {
       setActiveFloor(floorKeys[0]);
     }
   }, [floorKeys, activeFloor]);
+
+  useEffect(() => {
+    function onClickOutside(ev: MouseEvent) {
+      if (!hospitalMenuRef.current) return;
+      if (!hospitalMenuRef.current.contains(ev.target as Node)) {
+        setHospitalMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   // Sincronizar activeFloor quando a busca filtrar os andares (apenas se o atual sumir do filtro)
   useEffect(() => {
@@ -261,21 +292,49 @@ const Dashboard: React.FC = () => {
 
              {/* Filtros de Setup */}
              <div className="flex items-center gap-4">
-                <div className="relative group">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <select 
-                  value={activeHospital}
-                  onChange={(e) => { setActiveHospital(e.target.value); setActiveFloor(null); }}
-                  className="appearance-none bg-slate-800/60 border border-slate-600/50 rounded-xl py-2.5 pl-10 pr-10 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 text-slate-200 shadow-inner min-w-[240px] cursor-pointer"
+              <div className="relative group min-w-[280px]" ref={hospitalMenuRef}>
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <button
+                  type="button"
+                  onClick={() => setHospitalMenuOpen((v) => !v)}
+                  className="w-full text-left bg-slate-800/60 border border-slate-600/50 rounded-xl py-2.5 pl-10 pr-10 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 text-slate-200 shadow-inner cursor-pointer hover:border-slate-500/60 transition"
                 >
-                  <option value="" disabled className="bg-slate-800 text-slate-400">Selecione um hospital</option>
-                  {hospitals.map(h => (
-                    <option key={h} value={h} className="bg-slate-800 text-slate-200">
-                      {formatHospitalName(h)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                  {activeHospital ? formatHospitalName(activeHospital) : 'Selecione um hospital'}
+                </button>
+                <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none transition-transform ${hospitalMenuOpen ? 'rotate-180' : ''}`} />
+
+                {hospitalMenuOpen && (
+                  <div className="absolute left-0 right-0 mt-2 max-h-80 overflow-y-auto rounded-xl border border-slate-600/60 bg-slate-900/95 backdrop-blur-xl shadow-2xl z-50 custom-scrollbar">
+                    {!hospitals.length && (
+                      <div className="px-3 py-2 text-xs text-slate-400">Sem hospitais disponíveis</div>
+                    )}
+                    {hospitalsByRegional.map(({ regional, items }) => (
+                      <div key={regional} className="border-b border-slate-700/60 last:border-b-0 py-1">
+                        {items.map((h) => {
+                          const isActive = activeHospital === h;
+                          return (
+                            <button
+                              key={h}
+                              type="button"
+                              onClick={() => {
+                                setActiveHospital(h);
+                                setActiveFloor(null);
+                                setHospitalMenuOpen(false);
+                              }}
+                              className={`w-full px-3 py-1.5 text-left text-sm font-semibold transition ${
+                                isActive
+                                  ? 'bg-blue-600/70 text-white'
+                                  : 'text-slate-200 hover:bg-slate-700/80 hover:text-white'
+                              }`}
+                            >
+                              {formatHospitalName(h)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="relative group min-w-[280px]">

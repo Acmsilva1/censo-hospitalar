@@ -39,7 +39,7 @@ let metas: any[] = [];
 /** Metadados da carga em segundo plano (jornada completa depende disto). */
 let auxiliaryReady = false;
 let auxiliaryLoadError: string | null = null;
-const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:3210';
+const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:3020';
 
 const publishOrchestratorEvent = async (event: Record<string, unknown>) => {
   try {

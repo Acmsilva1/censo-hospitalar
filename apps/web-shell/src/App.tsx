@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { VisaoHospitalar } from './VisaoHospitalar';
 
 type StateItem = {
   atendimentoId: string;
@@ -11,7 +12,8 @@ type StateItem = {
 };
 
 export function App() {
-  const [screen, setScreen] = useState<'home' | 'jornada' | 'censo'>('home');
+  const [screen, setScreen] = useState<'jornada' | 'censo' | 'visao'>('jornada');
+  const [view, setView] = useState<'home' | 'app'>('home');
   const [items, setItems] = useState<StateItem[]>([]);
   const [wsOnline, setWsOnline] = useState(false);
   const [targets, setTargets] = useState({
@@ -21,8 +23,8 @@ export function App() {
     censoApi: 'http://localhost:3212',
   });
 
-  const orchestratorHttp = useMemo(() => 'http://localhost:3210', []);
-  const orchestratorWs = useMemo(() => 'ws://localhost:3210/ws/state', []);
+  const orchestratorHttp = useMemo(() => 'http://localhost:3020', []);
+  const orchestratorWs = useMemo(() => 'ws://localhost:3020/ws/state', []);
 
   useEffect(() => {
     let closed = false;
@@ -67,34 +69,52 @@ export function App() {
       .catch(() => undefined);
   }, [orchestratorHttp]);
 
+  function openModule(module: 'jornada' | 'censo' | 'visao') {
+    setScreen(module);
+    setView('app');
+  }
+
   return (
-    <div className={screen === 'home' ? 'home-shell' : 'shell'}>
-      {screen === 'home' ? (
+    <div className="stage-shell">
+      <div className={`stage-track ${view === 'app' ? 'show-app' : ''}`}>
         <main className="home">
-          <h1>Jornada do Paciente</h1>
-          <p>Selecione o modulo para abrir endpoints, queries e funcoes dedicadas.</p>
-          <div className="card-grid">
-            <button className="big-card" onClick={() => setScreen('jornada')}>
-              <span className="card-title">Pronto socorro</span>
-              <span className="card-sub">Modulo Jornada + API PS</span>
-            </button>
-            <button className="big-card" onClick={() => setScreen('censo')}>
-              <span className="card-title">Internacao</span>
-              <span className="card-sub">Modulo Censo/Leitos + API internacao</span>
-            </button>
+          <div className="home-overlay" />
+          <div className="home-title" aria-label="Jornada do Paciente">
+            <span className="home-title-kicker">Centro de Comando</span>
+            <h1>Jornada do Paciente</h1>
           </div>
+          <section className="home-content">
+            <div className="card-grid">
+              <button className="big-card" onClick={() => openModule('jornada')}>
+                <span className="card-kicker">Pronto Socorro</span>
+                <span className="card-title">Jornada</span>
+                <span className="card-sub">Fluxo assistencial e eventos do PS</span>
+              </button>
+              <button className="big-card" onClick={() => openModule('censo')}>
+                <span className="card-kicker">Internacao</span>
+                <span className="card-title">Censo e Leitos</span>
+                <span className="card-sub">Gestao de leitos e fila de alocacao</span>
+              </button>
+              <button className="big-card" onClick={() => openModule('visao')}>
+                <span className="card-kicker">Novo modulo</span>
+                <span className="card-title">Visao hospitalar</span>
+                <span className="card-sub">Ocupacao por andar e fluxo do PS</span>
+              </button>
+            </div>
+          </section>
         </main>
-      ) : (
-        <>
+
+        <section className="shell">
           <header>
             <h1>Jornada do Paciente</h1>
             <p>Orquestrador central de conexoes, estado e roteamento entre modulos.</p>
           </header>
 
           <nav>
-            <button onClick={() => setScreen('home')}>Voltar</button>
+            <button onClick={() => setView('home')}>Voltar</button>
             <button className={screen === 'jornada' ? 'active' : ''} onClick={() => setScreen('jornada')}>Pronto socorro</button>
             <button className={screen === 'censo' ? 'active' : ''} onClick={() => setScreen('censo')}>Internacao</button>
+            <button className={screen === 'visao' ? 'active' : ''} onClick={() => setScreen('visao')}>Visao hospitalar</button>
           </nav>
 
           <section className="content iframe-stack">
@@ -110,9 +130,15 @@ export function App() {
             >
               <iframe title="Censo" src={targets.censoWeb} />
             </div>
+            <div
+              className={`iframe-pane ${screen === 'visao' ? 'is-active' : ''}`}
+              aria-hidden={screen !== 'visao'}
+            >
+              <VisaoHospitalar censoApiUrl={targets.censoApi} jornadaApiUrl={targets.jornadaApi} />
+            </div>
           </section>
-        </>
-      )}
+        </section>
+      </div>
     </div>
   );
 }

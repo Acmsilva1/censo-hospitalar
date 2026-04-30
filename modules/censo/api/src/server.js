@@ -11,7 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/api', routes);
-const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:3210';
+const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:3020';
 async function publishOrchestratorEvent(event) {
     try {
         const res = await fetch(`${ORCHESTRATOR_URL}/events`, {

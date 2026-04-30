@@ -1,7 +1,6 @@
-import { Clock } from 'lucide-react'
+﻿import { Clock } from 'lucide-react'
 import { isInternacaoOutcome } from '../lib/internacaoOutcome'
 
-/** Campos usados na fila (alinha com PatientSummary em App). */
 export type PatientQueuePatient = {
   NR_ATENDIMENTO: string
   PACIENTE: string
@@ -19,17 +18,12 @@ export type PatientQueuePatient = {
   CID_INTERNADO?: string
   ALTA_HOSPITALAR?: string
   ALTA_MEDICA?: string
-  /** Preferir quando vier da API — evita fila sem campos de desfecho. */
   outcomeInternacao?: boolean
 }
 
 function priorityBadgeClass(priority: string) {
   const p = String(priority || '')
-  if (
-    (p.includes('AMARELO') || p.includes('URGENTE')) &&
-    !p.includes('POUCO') &&
-    !p.includes('NÃO')
-  ) {
+  if ((p.includes('AMARELO') || p.includes('URGENTE')) && !p.includes('POUCO') && !p.includes('NÃO')) {
     return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'
   }
   if (p.includes('VERDE') || p.includes('POUCO')) {
@@ -60,9 +54,8 @@ export function PatientQueueRow({ patient: p, onSelect }: PatientQueueRowProps) 
     typeof p.outcomeInternacao === 'boolean'
       ? p.outcomeInternacao
       : isInternacaoOutcome(p as Record<string, unknown>)
-  /** DT_ALTA existe também na alta hospitalar pós-PS (internação); não confundir com alta ambulatorial. */
-  const mostrarBadgeAlta =
-    !internacao && Boolean(p.DT_ALTA && String(p.DT_ALTA) !== 'NULL')
+
+  const mostrarBadgeAlta = !internacao && Boolean(p.DT_ALTA && String(p.DT_ALTA) !== 'NULL')
 
   return (
     <div
@@ -78,39 +71,29 @@ export function PatientQueueRow({ patient: p, onSelect }: PatientQueueRowProps) 
       className="group flex flex-col p-4 border-b border-white/5 hover:bg-dash-live/10 cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-dash-live/40"
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-black text-dash-live tracking-widest font-mono">
-          ATD #{p.NR_ATENDIMENTO}
-        </span>
-        <span
-          className={`text-[9px] font-black px-2 py-0.5 rounded border border-white/10 ${priorityBadgeClass(
-            p.PRIORIDADE || ''
-          )}`}
-        >
+        <span className="text-[10px] font-black text-dash-live tracking-widest font-mono">ATD #{p.NR_ATENDIMENTO}</span>
+        <span className={`text-[9px] font-black px-2 py-0.5 rounded border border-white/10 ${priorityBadgeClass(p.PRIORIDADE || '')}`}>
           {priorityLabel(p.PRIORIDADE || '')}
         </span>
       </div>
-      <span className="text-base font-bold text-white group-hover:translate-x-2 transition-transform truncate">
-        {p.PACIENTE}
-      </span>
+      <span className="text-base font-bold text-white group-hover:translate-x-2 transition-transform truncate">{p.PACIENTE}</span>
       <div className="flex items-center gap-3 mt-2">
-        <span className="text-xs text-app-muted">
-          {p.IDADE} • {p.SEXO}
-        </span>
+        <span className="text-xs text-app-muted">{p.IDADE} - {p.SEXO}</span>
         <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
           {internacao && (
             <span
-              className="text-[7px] font-black px-1.5 py-0.5 rounded-md bg-orange-500 text-white animate-pulse whitespace-nowrap shadow-[0_0_12px_rgba(249,115,22,0.55)]"
+              className="text-[8px] font-black px-2.5 py-1 rounded-md bg-orange-500 text-white animate-pulse whitespace-nowrap border border-orange-200/80 shadow-[0_0_18px_rgba(249,115,22,0.8)] leading-none"
               title="Desfecho: internação"
             >
               INTERNAÇÃO
             </span>
           )}
           {mostrarBadgeAlta && (
-            <span className="text-[8px] font-black px-2 py-0.5 rounded bg-red-500 text-white animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.4)]">
+            <span className="text-[8px] font-black px-2.5 py-1 rounded-md bg-yellow-400 text-[#1a1a1a] animate-pulse border border-yellow-200 shadow-[0_0_18px_rgba(250,204,21,0.8)] leading-none">
               ALTA
             </span>
           )}
-          <span className="text-xs text-yellow-400/70 flex items-center gap-1.5 font-mono shrink-0">
+          <span className={`text-xs flex items-center gap-1.5 font-mono shrink-0 ${mostrarBadgeAlta ? 'text-yellow-300' : 'text-yellow-400/70'}`}>
             <Clock size={12} />
             {new Date(p.DT_ENTRADA).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           </span>
