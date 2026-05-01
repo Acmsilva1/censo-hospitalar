@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { HospitalBuilding3D, type BuildingFloor3D } from './HospitalBuilding3D';
+import { HospitalFloorInterior3D } from './HospitalFloorInterior3D';
 
 type VisaoHospitalarProps = {
   censoApiUrl: string;
@@ -608,37 +609,21 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                   </article>
                 </div>
 
-                <div className="vh-floor-sketch">
-                  {(selectedFloor.sectors && selectedFloor.sectors.length > 0
-                    ? selectedFloor.sectors
-                    : [
-                        {
-                          name: 'Setor',
-                          occupied: selectedFloor.occupied,
-                          total: selectedFloor.total,
-                          beds: selectedFloor.beds,
-                        },
-                      ]
-                  ).map((sector, sectorIdx) => (
-                    <section key={`${selectedFloor.id}-sector-${sectorIdx}`} className="vh-sector-room">
-                      <div className="vh-sector-header">
-                        <strong>{sector.name}</strong>
-                        <span>
-                          {sector.occupied}/{sector.total} ocupados ({sector.total > 0 ? Math.round((sector.occupied / sector.total) * 100) : 0}%)
-                        </span>
-                      </div>
-                      <div className="vh-bed-grid">
-                        {sector.beds.map((bed) => {
-                          const occupied = isBedOccupied(bed);
-                          return (
-                            <div key={`${selectedFloor.id}-${sector.name}-${bed.id}`} className={`vh-bed-cell ${occupied ? 'occupied' : 'free'}`}>
-                              <span>{bed.id}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
+                <div className="vh-floor-sketch" style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                  <HospitalFloorInterior3D 
+                    sectors={
+                      selectedFloor.sectors && selectedFloor.sectors.length > 0
+                        ? selectedFloor.sectors
+                        : [
+                            {
+                              name: 'Geral',
+                              occupied: selectedFloor.occupied,
+                              total: selectedFloor.total,
+                              beds: selectedFloor.beds,
+                            },
+                          ]
+                    } 
+                  />
                 </div>
               </div>
             </div>
