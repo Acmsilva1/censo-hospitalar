@@ -96,7 +96,7 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
   );
 }
 
-function SectorBlock({ sector, position, size }: { sector: Sector; position: [number, number, number]; size: [number, number] }) {
+function SectorBlock({ sector, position, size, isBottomHalf }: { sector: Sector; position: [number, number, number]; size: [number, number]; isBottomHalf: boolean }) {
   const [w, d] = size;
   const beds = sector.beds;
   const count = Math.max(1, beds.length);
@@ -114,8 +114,12 @@ function SectorBlock({ sector, position, size }: { sector: Sector; position: [nu
         <meshStandardMaterial color="#1a2e3f" roughness={0.8} />
       </mesh>
       
-      {/* Título do Setor */}
-      <SpriteLabel text={sector.name} position={[0, 2.2, -d/2 + 0.6]} scale={Math.max(1.2, w * 0.15)} />
+      {/* Título do Setor ajustado conforme a metade do grid para evitar sobreposição */}
+      <SpriteLabel 
+        text={sector.name} 
+        position={[0, 2.2, isBottomHalf ? d/2 - 0.6 : -d/2 + 0.6]} 
+        scale={Math.max(1.2, w * 0.15)} 
+      />
 
       {/* Vidro ao redor (simulando paredes translúcidas) */}
       <mesh position={[0, 0.8, 0]}>
@@ -199,7 +203,8 @@ export const HospitalFloorInterior3D = memo(function HospitalFloorInterior3D({ s
               const r = Math.floor(i / cols);
               const x = -totalWidth / 2 + sectorDim / 2 + c * sectorDim;
               const z = -totalDepth / 2 + sectorDim / 2 + r * sectorDim;
-              return <SectorBlock key={sector.name} sector={sector} position={[x, 0, z]} size={[sectorDim, sectorDim]} />;
+              const isBottomHalf = r >= rows / 2;
+              return <SectorBlock key={sector.name} sector={sector} position={[x, 0, z]} size={[sectorDim, sectorDim]} isBottomHalf={isBottomHalf} />;
             })}
           </group>
         </group>
