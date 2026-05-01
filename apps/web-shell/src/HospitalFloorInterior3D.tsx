@@ -114,10 +114,10 @@ function SectorBlock({ sector, position, size, isBottomHalf }: { sector: Sector;
         <meshStandardMaterial color="#1a2e3f" roughness={0.8} />
       </mesh>
       
-      {/* Título do Setor empurrado para fora da caixa de vidro para "fugir" dos leitos */}
+      {/* Título do Setor empurrado para fora da caixa de vidro e mais baixo para "fugir" dos leitos */}
       <SpriteLabel 
         text={sector.name} 
-        position={[0, 2.5, isBottomHalf ? d/2 + 1.2 : -d/2 - 1.2]} 
+        position={[0, 0.8, isBottomHalf ? d/2 + 1.6 : -d/2 - 1.6]} 
         scale={Math.max(1.2, w * 0.15)} 
       />
 
