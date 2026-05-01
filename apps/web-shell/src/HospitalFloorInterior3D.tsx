@@ -184,7 +184,7 @@ export const HospitalFloorInterior3D = memo(function HospitalFloorInterior3D({ s
         <pointLight position={[-10, 15, -10]} intensity={0.6} color="#d5f3ff" />
         <hemisphereLight args={['#e7f7ff', '#5d89aa', 0.8]} />
 
-        <group rotation={[0.08, -0.3, 0]} position={[0, 2.8, 0]}>
+        <group rotation={[0.08, -0.3, 0]} position={[0, 1.8, 0]}>
           {/* Fundação procedural imitando o exterior do prédio */}
           <ProceduralFloorFoundation w={totalWidth} d={totalDepth} />
 
