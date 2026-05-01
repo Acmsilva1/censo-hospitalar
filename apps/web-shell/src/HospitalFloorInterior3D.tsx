@@ -176,8 +176,8 @@ export const HospitalFloorInterior3D = memo(function HospitalFloorInterior3D({ s
   const totalDepth = sectorDim * rows;
 
   const maxDim = Math.max(totalWidth, totalDepth);
-  const camY = Math.max(14, maxDim * 1.0);
-  const camZ = Math.max(18, maxDim * 1.4);
+  const camY = Math.max(14, maxDim * 0.85);
+  const camZ = Math.max(18, maxDim * 1.15);
 
   return (
     <div className="vh-canvas-wrap" style={{ flex: 1, minHeight: '560px', width: '100%' }}>
