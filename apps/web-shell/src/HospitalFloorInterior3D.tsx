@@ -115,7 +115,7 @@ function SectorBlock({ sector, position, size }: { sector: Sector; position: [nu
       </mesh>
       
       {/* Título do Setor */}
-      <SpriteLabel text={sector.name} position={[0, 2.2, -d/2 + 0.6]} scale={1.2} />
+      <SpriteLabel text={sector.name} position={[0, 2.2, -d/2 + 0.6]} scale={Math.max(1.2, w * 0.15)} />
 
       {/* Vidro ao redor (simulando paredes translúcidas) */}
       <mesh position={[0, 0.8, 0]}>
@@ -175,9 +175,13 @@ export const HospitalFloorInterior3D = memo(function HospitalFloorInterior3D({ s
   const totalWidth = sectorDim * cols;
   const totalDepth = sectorDim * rows;
 
+  const maxDim = Math.max(totalWidth, totalDepth);
+  const camY = Math.max(14, maxDim * 1.0);
+  const camZ = Math.max(18, maxDim * 1.4);
+
   return (
     <div className="vh-canvas-wrap" style={{ flex: 1, minHeight: '560px', width: '100%' }}>
-      <Canvas camera={{ position: [0, Math.max(14, totalWidth * 0.7), Math.max(16, totalDepth * 0.8)], fov: 36 }}>
+      <Canvas camera={{ position: [0, camY, camZ], fov: 36 }}>
         <color attach="background" args={['#6ea9d0']} />
         <ambientLight intensity={1.1} />
         <directionalLight position={[10, 20, 10]} intensity={1.4} />
