@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { HospitalBuilding3D, type BuildingFloor3D } from './HospitalBuilding3D';
 import { HospitalFloorInterior3D } from './HospitalFloorInterior3D';
+import { PSFloorView3D } from './PSFloorView3D';
 
 type VisaoHospitalarProps = {
   censoApiUrl: string;
@@ -609,21 +610,35 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                   </article>
                 </div>
 
-                <div className="vh-floor-sketch" style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-                  <HospitalFloorInterior3D 
-                    sectors={
-                      selectedFloor.sectors && selectedFloor.sectors.length > 0
-                        ? selectedFloor.sectors
-                        : [
-                            {
-                              name: 'Geral',
-                              occupied: selectedFloor.occupied,
-                              total: selectedFloor.total,
-                              beds: selectedFloor.beds,
-                            },
-                          ]
-                    } 
-                  />
+                <div className="vh-floor-sketch" style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+                  {/* Detecta se é PS pela ausência de leitos ou pelo nome do andar */}
+                  {(selectedFloor.beds.length === 0 && (!selectedFloor.sectors || selectedFloor.sectors.length === 0)) || 
+                   String(selectedFloor.name ?? '').toLowerCase().includes('ps') || 
+                   String(selectedFloor.name ?? '').toLowerCase().includes('pronto') ? (
+                    <PSFloorView3D
+                      floorName={selectedFloor.name}
+                      sectors={
+                        selectedFloor.sectors && selectedFloor.sectors.length > 0
+                          ? selectedFloor.sectors.map(s => ({ name: s.name, occupied: s.occupied, total: s.total }))
+                          : []
+                      }
+                    />
+                  ) : (
+                    <HospitalFloorInterior3D
+                      sectors={
+                        selectedFloor.sectors && selectedFloor.sectors.length > 0
+                          ? selectedFloor.sectors
+                          : [
+                              {
+                                name: 'Geral',
+                                occupied: selectedFloor.occupied,
+                                total: selectedFloor.total,
+                                beds: selectedFloor.beds,
+                              },
+                            ]
+                      }
+                    />
+                  )}
                 </div>
               </div>
             </div>

@@ -55,46 +55,50 @@ function SpriteLabel({ text, position, scale = 1, color = '#ffffff', bg = '#0f29
   return <sprite position={position} scale={[2.8 * scale, 0.7 * scale, 1]} material={material} />;
 }
 
+// Carrega uma vez, compartilhado entre todas as camas
+const bedTexture = new THREE.TextureLoader().load('/cama.png');
+
+
 function BedModel({ bed, position }: { bed: Bed; position: [number, number, number] }) {
   const occupied = isBedOccupied(bed);
-  const pulseRef = useRef<THREE.MeshStandardMaterial>(null);
+  const glowRef = useRef<THREE.MeshStandardMaterial>(null);
+
+  // Cria materiais para cada face do BoxGeometry [dir, esq, cima, baixo, frente, tras]
+  const materials = useMemo(() => [
+    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // lado
+    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // lado
+    new THREE.MeshStandardMaterial({ // TOPO — textura da cama
+      map: bedTexture,
+      emissive: occupied ? new THREE.Color('#60a5fa') : new THREE.Color('#4ade80'),
+      emissiveIntensity: occupied ? 0.6 : 0.1,
+      roughness: 0.6,
+    }),
+    new THREE.MeshStandardMaterial({ color: '#555', roughness: 0.9 }), // baixo
+    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // frente
+    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // tras
+  ], [occupied]);
 
   useFrame(({ clock }) => {
-    if (occupied && pulseRef.current) {
-      // Pulso leve azul para leitos ocupados (conforme solicitado)
-      const wave = 0.6 + (Math.sin(clock.elapsedTime * 2.5) + 1) * 0.4;
-      pulseRef.current.emissiveIntensity = wave;
+    if (occupied && materials[2]) {
+      const wave = 0.4 + (Math.sin(clock.elapsedTime * 2.5) + 1) * 0.35;
+      materials[2].emissiveIntensity = wave;
     }
   });
 
   return (
     <group position={position}>
-      {/* Cama frame */}
-      <mesh position={[0, 0.15, 0]}>
-        <boxGeometry args={[0.7, 0.3, 1.5]} />
-        <meshStandardMaterial color="#c0cad5" roughness={0.4} metalness={0.6} />
+      {/* Caixa da cama com textura no topo */}
+      <mesh position={[0, 0.15, 0]} material={materials}>
+        <boxGeometry args={[0.75, 0.28, 1.55]} />
       </mesh>
-      {/* Colchão */}
-      <mesh position={[0, 0.35, 0]}>
-        <boxGeometry args={[0.65, 0.12, 1.45]} />
-        <meshStandardMaterial 
-          ref={pulseRef}
-          color={occupied ? '#3b82f6' : '#22c55e'} // Azul ocupado, Verde livre
-          emissive={occupied ? '#60a5fa' : '#4ade80'} 
-          emissiveIntensity={occupied ? 0.8 : 0.2}
-          roughness={0.8} 
-        />
-      </mesh>
-      {/* Travesseiro */}
-      <mesh position={[0, 0.45, -0.5]}>
-        <boxGeometry args={[0.4, 0.08, 0.25]} />
-        <meshStandardMaterial color="#ffffff" roughness={0.9} />
-      </mesh>
-      {/* Label do leito */}
-      <SpriteLabel text={bed.id} position={[0, 1.1, 0]} scale={0.4} bg="transparent" color="#ffffff" />
+      {/* Número do leito */}
+      <SpriteLabel text={bed.id} position={[0, 0.85, 0]} scale={0.38} bg="transparent" color="#ffffff" />
     </group>
   );
 }
+
+
+
 
 function SectorBlock({ sector, position, size, isBottomHalf }: { sector: Sector; position: [number, number, number]; size: [number, number]; isBottomHalf: boolean }) {
   const [w, d] = size;
@@ -121,17 +125,16 @@ function SectorBlock({ sector, position, size, isBottomHalf }: { sector: Sector;
         scale={Math.max(1.2, w * 0.15)} 
       />
 
-      {/* Vidro ao redor (simulando paredes translúcidas) */}
+      {/* Vidro ao redor — opacity simples para nao bloquear renders internos */}
       <mesh position={[0, 0.8, 0]}>
         <boxGeometry args={[w - 0.4, 1.6, d - 0.4]} />
-        <meshPhysicalMaterial 
+        <meshStandardMaterial 
           color="#aee6ff" 
-          transmission={0.85} 
-          opacity={0.3} 
+          opacity={0.18} 
           transparent 
-          roughness={0.08} 
-          ior={1.4} 
-          thickness={0.5} 
+          roughness={0.08}
+          metalness={0.1}
+          depthWrite={false}
         />
       </mesh>
 
