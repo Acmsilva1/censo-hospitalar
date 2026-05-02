@@ -197,7 +197,7 @@ function PSSectorBlock({
   // Array de 6 materiais: dir, esq, TOPO, baixo, frente, trás
   const materials = [sideMat, sideMat, topMat, bottomMat, sideMat, sideMat];
 
-  const labelZ = d / 2 + 3.5; // Bem fora do bloco, no corredor à frente
+  const labelZ = isBottomHalf ? d / 2 + 0.4 : -d / 2 - 0.4;
 
   return (
     <group position={position}>
@@ -239,17 +239,17 @@ function PSSectorBlock({
         />
       </mesh>
 
-      {/* Label grande: Nome do setor — fora do bloco */}
+      {/* Label grande: Nome do setor */}
       <SectorNameLabel
         text={sector.name}
-        position={[0, 2.2, labelZ]}
+        position={[0, 3.2, labelZ]}
         scale={Math.max(1.0, w * 0.11)}
       />
 
-      {/* Label percentual — fora do bloco */}
+      {/* Label percentual brilhante */}
       <PctLabel
         text={`${pct}%  ${sector.occupied}/${sector.total}`}
-        position={[0, 1.2, labelZ]}
+        position={[0, 1.5, labelZ]}
         scale={Math.max(0.95, w * 0.10)}
         pctColor={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
       />
