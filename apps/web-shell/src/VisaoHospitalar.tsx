@@ -528,6 +528,36 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
             </div>
           </header>
 
+          {/* Navegação rápida entre andares (Tabs) */}
+          {mode === 'floor' && (
+            <div className="vh-floor-tabs" style={{ 
+              display: 'flex', gap: '8px', padding: '12px 24px', 
+              backgroundColor: '#05121b', borderBottom: '1px solid #1a364a', 
+              overflowX: 'auto', WebkitOverflowScrolling: 'touch' 
+            }}>
+              {floors.map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setSelectedFloorId(f.id)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: selectedFloorId === f.id ? '#35d3ff' : '#1e3a4a',
+                    backgroundColor: selectedFloorId === f.id ? '#0d3a52' : '#0a1d2e',
+                    color: selectedFloorId === f.id ? '#f0faff' : '#9eb3c1',
+                    fontWeight: selectedFloorId === f.id ? '600' : '400',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {mode === 'building' && (
             <div className="vh-building-real-wrap">
               <div className="vh-building-layout">
