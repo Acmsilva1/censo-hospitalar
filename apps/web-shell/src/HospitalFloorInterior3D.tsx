@@ -82,15 +82,15 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
     new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.4 }),
   ], [color, emissive]);
 
-  // Pulso de alerta intermediário e suave em volta da cama
+  // Pulso de alerta mais forte para ser visível de longe
   useFrame(({ clock }) => {
-    const wave = (Math.sin(clock.elapsedTime * 2.5) + 1) / 2; // 0 a 1
+    const wave = (Math.sin(clock.elapsedTime * 3.0) + 1) / 2; // 0 a 1
     if (pulseMatRef.current) {
-      pulseMatRef.current.emissiveIntensity = 0.5 + wave * 0.8;
-      pulseMatRef.current.opacity = 0.15 + wave * 0.15;
+      pulseMatRef.current.emissiveIntensity = 0.8 + wave * 1.5; // Mais brilho
+      pulseMatRef.current.opacity = 0.3 + wave * 0.4; // Mais opaco (0.3 a 0.7)
     }
     if (pulseMeshRef.current) {
-      const s = 1.0 + wave * 0.02;
+      const s = 1.0 + wave * 0.05; // Respiração maior (5%)
       pulseMeshRef.current.scale.set(s, s, s);
     }
   });
@@ -104,14 +104,14 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
 
       {/* Aura pulsante de status ao redor do leito (verde ou vermelho) */}
       <mesh ref={pulseMeshRef} position={[0, 0.15, 0]}>
-        <boxGeometry args={[0.82, 0.32, 1.62]} />
+        <boxGeometry args={[0.88, 0.38, 1.68]} />
         <meshStandardMaterial
           ref={pulseMatRef}
           color={color}
           emissive={emissive}
           emissiveIntensity={1.0}
           transparent
-          opacity={0.3}
+          opacity={0.5}
           depthWrite={false}
         />
       </mesh>
