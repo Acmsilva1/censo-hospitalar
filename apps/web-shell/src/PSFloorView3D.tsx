@@ -137,9 +137,9 @@ function PSSectorBlock({
         <meshStandardMaterial color="#1a2e3f" roughness={0.85} />
       </mesh>
 
-      {/* Bloco principal do setor com ícone no topo — mais alto e separado */}
-      <mesh position={[0, 2.0, 0]} material={materials}>
-        <boxGeometry args={[w - 2.0, 4.0, d - 2.0]} />
+      {/* Bloco principal — menor dentro do setor para criar corredor mais visivel */}
+      <mesh position={[0, 1.8, 0]} material={materials}>
+        <boxGeometry args={[w - 3.0, 3.4, d - 3.0]} />
       </mesh>
 
       {/* Halo pulsante de status ao redor da base */}
@@ -156,9 +156,9 @@ function PSSectorBlock({
         />
       </mesh>
 
-      {/* Vidro envoltório transparente sobre o bloco */}
-      <mesh position={[0, 2.0, 0]}>
-        <boxGeometry args={[w - 1.8, 4.1, d - 1.8]} />
+      {/* Vidro envoltório transparente */}
+      <mesh position={[0, 1.8, 0]}>
+        <boxGeometry args={[w - 2.8, 3.5, d - 2.8]} />
         <meshStandardMaterial
           color="#aee6ff"
           opacity={0.12}
@@ -172,8 +172,8 @@ function PSSectorBlock({
       {/* Label: Nome do setor */}
       <SpriteLabel
         text={sector.name}
-        position={[0, 5.0, labelZ]}
-        scale={Math.max(1.4, w * 0.16)}
+        position={[0, 4.2, labelZ]}
+        scale={Math.max(1.3, w * 0.15)}
         bg="#0f2d3e"
         color="#e0f7ff"
       />
@@ -181,8 +181,8 @@ function PSSectorBlock({
       {/* Label: Percentual de ocupação */}
       <SpriteLabel
         text={`${sector.occupied}/${sector.total} · ${pct}%`}
-        position={[0, 4.1, labelZ]}
-        scale={Math.max(1.2, w * 0.13)}
+        position={[0, 3.4, labelZ]}
+        scale={Math.max(1.1, w * 0.12)}
         bg="transparent"
         color={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
       />
@@ -228,15 +228,15 @@ export const PSFloorView3D = memo(function PSFloorView3D({ sectors, floorName }:
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
 
-  // Setores maiores com gap generoso entre eles para leitura clara
-  const sectorW = 11;
-  const sectorD = 10;
+  // Setores ligeiramente menores com gap amplo entre eles
+  const sectorW = 10;
+  const sectorD = 9;
   const totalWidth = sectorW * cols;
   const totalDepth = sectorD * rows;
 
   const maxDim = Math.max(totalWidth, totalDepth);
-  const camY = Math.max(14, maxDim * 0.70);
-  const camZ = Math.max(18, maxDim * 0.95);
+  const camY = Math.max(16, maxDim * 0.78);
+  const camZ = Math.max(20, maxDim * 1.05);
 
   return (
     <div style={{ flex: 1, minHeight: '560px', width: '100%' }}>
@@ -247,7 +247,7 @@ export const PSFloorView3D = memo(function PSFloorView3D({ sectors, floorName }:
         <pointLight position={[-10, 18, -10]} intensity={0.7} color="#d5f3ff" />
         <hemisphereLight args={['#e7f7ff', '#5d89aa', 0.9]} />
 
-        <group rotation={[0.08, -0.3, 0]} position={[0, 1.8, 0]}>
+        <group rotation={[0.08, -0.3, 0]} position={[0, 0.5, 0]}>
           {/* Fundação procedural */}
           <ProceduralFoundation w={totalWidth} d={totalDepth} />
 
