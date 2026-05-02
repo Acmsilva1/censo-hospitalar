@@ -211,16 +211,16 @@ function PSSectorBlock({
   const pulseMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const pulseMeshRef = useRef<THREE.Mesh>(null);
 
-  // Pulso de alerta intenso e "respiração" quando crítico
+  // Pulso de alerta intermediário e suave
   useFrame(({ clock }) => {
     if (pct >= 70) {
-      const wave = (Math.sin(clock.elapsedTime * 3.5) + 1) / 2; // 0 a 1 (rápido)
+      const wave = (Math.sin(clock.elapsedTime * 2.5) + 1) / 2; // 0 a 1
       if (pulseMatRef.current) {
-        pulseMatRef.current.emissiveIntensity = 1.0 + wave * 3.5; // Brilho bem mais forte (1.0 a 4.5)
-        pulseMatRef.current.opacity = 0.4 + wave * 0.3; // Opacidade variando (0.4 a 0.7)
+        pulseMatRef.current.emissiveIntensity = 0.5 + wave * 0.8; // Brilho suave (0.5 a 1.3)
+        pulseMatRef.current.opacity = 0.15 + wave * 0.15; // Opacidade translúcida (0.15 a 0.3)
       }
       if (pulseMeshRef.current) {
-        const s = 1.0 + wave * 0.06; // Cresce até 6%
+        const s = 1.0 + wave * 0.02; // Respiração muito leve de 2%
         pulseMeshRef.current.scale.set(s, s, s);
       }
     }
