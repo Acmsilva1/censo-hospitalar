@@ -137,9 +137,9 @@ function PSSectorBlock({
         <meshStandardMaterial color="#1a2e3f" roughness={0.85} />
       </mesh>
 
-      {/* Bloco principal — menor dentro do setor para criar corredor mais visivel */}
-      <mesh position={[0, 1.8, 0]} material={materials}>
-        <boxGeometry args={[w - 3.0, 3.4, d - 3.0]} />
+      {/* Bloco principal — metade da altura para melhor visibilidade */}
+      <mesh position={[0, 0.9, 0]} material={materials}>
+        <boxGeometry args={[w - 3.0, 1.7, d - 3.0]} />
       </mesh>
 
       {/* Halo pulsante de status ao redor da base */}
@@ -157,8 +157,8 @@ function PSSectorBlock({
       </mesh>
 
       {/* Vidro envoltório transparente */}
-      <mesh position={[0, 1.8, 0]}>
-        <boxGeometry args={[w - 2.8, 3.5, d - 2.8]} />
+      <mesh position={[0, 0.9, 0]}>
+        <boxGeometry args={[w - 2.8, 1.8, d - 2.8]} />
         <meshStandardMaterial
           color="#aee6ff"
           opacity={0.12}
@@ -172,7 +172,7 @@ function PSSectorBlock({
       {/* Label: Nome do setor */}
       <SpriteLabel
         text={sector.name}
-        position={[0, 4.2, labelZ]}
+        position={[0, 2.6, labelZ]}
         scale={Math.max(1.3, w * 0.15)}
         bg="#0f2d3e"
         color="#e0f7ff"
@@ -181,7 +181,7 @@ function PSSectorBlock({
       {/* Label: Percentual de ocupação */}
       <SpriteLabel
         text={`${sector.occupied}/${sector.total} · ${pct}%`}
-        position={[0, 3.4, labelZ]}
+        position={[0, 1.9, labelZ]}
         scale={Math.max(1.1, w * 0.12)}
         bg="transparent"
         color={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
