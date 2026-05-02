@@ -37,6 +37,54 @@ function resolveIcon(name: string): string {
   return '/setor_consulta.png'; // fallback ícone médico genérico
 }
 
+// Hook para carregar a imagem e aplicar máscara radial para esconder o fundo artificial (xadrez/branco)
+import { useState, useEffect } from 'react';
+function useIconTexture(url: string) {
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = url;
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // 1. Canvas temporário para criar a imagem com bordas transparentes (vignette)
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 512; tempCanvas.height = 512;
+      const tCtx = tempCanvas.getContext('2d')!;
+      
+      tCtx.drawImage(img, 0, 0, 512, 512);
+      
+      // Aplica máscara radial (mantém o centro opaco, apaga as bordas onde está o xadrez)
+      tCtx.globalCompositeOperation = 'destination-in';
+      const grad = tCtx.createRadialGradient(256, 256, 120, 256, 256, 240);
+      grad.addColorStop(0, 'rgba(0,0,0,1)'); // Centro totalmente visível
+      grad.addColorStop(1, 'rgba(0,0,0,0)'); // Bordas apagadas
+      tCtx.fillStyle = grad;
+      tCtx.fillRect(0, 0, 512, 512);
+
+      // 2. Canvas final com o fundo azul escuro da UI
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = 512; finalCanvas.height = 512;
+      const fCtx = finalCanvas.getContext('2d')!;
+      
+      fCtx.fillStyle = '#0a1d2e'; // Azul escuro sólido combinando com a base
+      fCtx.fillRect(0, 0, 512, 512);
+      
+      // Desenha a imagem processada por cima
+      fCtx.globalCompositeOperation = 'source-over';
+      fCtx.drawImage(tempCanvas, 0, 0);
+
+      // 3. Cria a textura do Three.js
+      const tex = new THREE.CanvasTexture(finalCanvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      setTexture(tex);
+    };
+  }, [url]);
+
+  return texture;
+}
+
 function occupancyColor(pct: number): { color: string; emissive: string } {
   if (pct >= 90) return { color: '#dc2626', emissive: '#f87171' }; // vermelho crítico
   if (pct >= 70) return { color: '#d97706', emissive: '#fbbf24' }; // amarelo alerta
@@ -167,21 +215,20 @@ function PSSectorBlock({
     }
   });
 
-  // Textura do ícone do setor
-  const iconTexture = useMemo(() => {
-    const tex = new THREE.TextureLoader().load(resolveIcon(sector.name));
-    tex.minFilter = THREE.LinearFilter;
-    return tex;
-  }, [sector.name]);
+  // Textura do ícone processada via Canvas para fundo perfeito
+  const iconTexture = useIconTexture(resolveIcon(sector.name));
 
-  // Materiais: topo com ícone, laterais com cor de ocupação
+  // Materiais: topo escuro com ícone limpo, laterais com cor de ocupação
   const sideColor = color;
-  const topMat = useMemo(() => new THREE.MeshStandardMaterial({
-    map: iconTexture,
-    emissive: new THREE.Color(emissive),
-    emissiveIntensity: pct >= 90 ? 0.5 : 0.12,
-    roughness: 0.5,
-  }), [iconTexture, emissive, pct]);
+  
+  const topMat = useMemo(() => {
+    if (!iconTexture) return new THREE.MeshStandardMaterial({ color: '#0a1d2e' });
+    return new THREE.MeshStandardMaterial({
+      map: iconTexture,
+      roughness: 0.8,
+      metalness: 0.1,
+    });
+  }, [iconTexture]);
 
   const sideMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: sideColor,
