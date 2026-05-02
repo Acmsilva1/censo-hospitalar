@@ -197,7 +197,7 @@ function PSSectorBlock({
   // Array de 6 materiais: dir, esq, TOPO, baixo, frente, trás
   const materials = [sideMat, sideMat, topMat, bottomMat, sideMat, sideMat];
 
-  const labelZ = 0; // Todos os labels flutuam direto acima, sem deslocamento em Z
+  const labelZ = d / 2 + 0.8; // Frente do bloco, uniforme para todos os setores
 
   return (
     <group position={position}>
