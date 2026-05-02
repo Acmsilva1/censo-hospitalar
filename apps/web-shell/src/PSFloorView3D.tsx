@@ -197,7 +197,7 @@ function PSSectorBlock({
   // Array de 6 materiais: dir, esq, TOPO, baixo, frente, trás
   const materials = [sideMat, sideMat, topMat, bottomMat, sideMat, sideMat];
 
-  const labelZ = isBottomHalf ? d / 2 + 1.4 : -d / 2 - 1.4;
+  const labelZ = 0; // Todos os labels flutuam direto acima, sem deslocamento em Z
 
   return (
     <group position={position}>
@@ -242,14 +242,14 @@ function PSSectorBlock({
       {/* Label grande: Nome do setor */}
       <SectorNameLabel
         text={sector.name}
-        position={[0, 3.2, labelZ]}
+        position={[0, 3.8, labelZ]}
         scale={Math.max(1.0, w * 0.11)}
       />
 
       {/* Label percentual brilhante */}
       <PctLabel
         text={`${pct}%  ${sector.occupied}/${sector.total}`}
-        position={[0, 1.5, labelZ]}
+        position={[0, 2.8, labelZ]}
         scale={Math.max(0.95, w * 0.10)}
         pctColor={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
       />
