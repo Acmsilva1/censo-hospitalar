@@ -137,9 +137,9 @@ function PSSectorBlock({
         <meshStandardMaterial color="#1a2e3f" roughness={0.85} />
       </mesh>
 
-      {/* Bloco principal do setor com ícone no topo */}
-      <mesh position={[0, 1.4, 0]} material={materials}>
-        <boxGeometry args={[w - 0.8, 2.8, d - 0.8]} />
+      {/* Bloco principal do setor com ícone no topo — mais alto e separado */}
+      <mesh position={[0, 2.0, 0]} material={materials}>
+        <boxGeometry args={[w - 2.0, 4.0, d - 2.0]} />
       </mesh>
 
       {/* Halo pulsante de status ao redor da base */}
@@ -157,8 +157,8 @@ function PSSectorBlock({
       </mesh>
 
       {/* Vidro envoltório transparente sobre o bloco */}
-      <mesh position={[0, 1.4, 0]}>
-        <boxGeometry args={[w - 0.6, 2.85, d - 0.6]} />
+      <mesh position={[0, 2.0, 0]}>
+        <boxGeometry args={[w - 1.8, 4.1, d - 1.8]} />
         <meshStandardMaterial
           color="#aee6ff"
           opacity={0.12}
@@ -172,8 +172,8 @@ function PSSectorBlock({
       {/* Label: Nome do setor */}
       <SpriteLabel
         text={sector.name}
-        position={[0, 3.4, labelZ]}
-        scale={Math.max(1.1, w * 0.14)}
+        position={[0, 5.0, labelZ]}
+        scale={Math.max(1.4, w * 0.16)}
         bg="#0f2d3e"
         color="#e0f7ff"
       />
@@ -181,8 +181,8 @@ function PSSectorBlock({
       {/* Label: Percentual de ocupação */}
       <SpriteLabel
         text={`${sector.occupied}/${sector.total} · ${pct}%`}
-        position={[0, 2.8, labelZ]}
-        scale={Math.max(0.95, w * 0.12)}
+        position={[0, 4.1, labelZ]}
+        scale={Math.max(1.2, w * 0.13)}
         bg="transparent"
         color={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
       />
@@ -228,15 +228,15 @@ export const PSFloorView3D = memo(function PSFloorView3D({ sectors, floorName }:
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
 
-  // Dimensão de cada setor — PS tem blocos maiores pois são ambientes
-  const sectorW = 8;
-  const sectorD = 7;
+  // Setores maiores com gap generoso entre eles para leitura clara
+  const sectorW = 11;
+  const sectorD = 10;
   const totalWidth = sectorW * cols;
   const totalDepth = sectorD * rows;
 
   const maxDim = Math.max(totalWidth, totalDepth);
-  const camY = Math.max(16, maxDim * 0.9);
-  const camZ = Math.max(20, maxDim * 1.2);
+  const camY = Math.max(14, maxDim * 0.70);
+  const camZ = Math.max(18, maxDim * 0.95);
 
   return (
     <div style={{ flex: 1, minHeight: '560px', width: '100%' }}>
