@@ -242,14 +242,14 @@ function PSSectorBlock({
       {/* Label grande: Nome do setor */}
       <SectorNameLabel
         text={sector.name}
-        position={[0, 2.6, labelZ]}
+        position={[0, 3.2, labelZ]}
         scale={Math.max(1.0, w * 0.11)}
       />
 
       {/* Label percentual brilhante */}
       <PctLabel
         text={`${pct}%  ${sector.occupied}/${sector.total}`}
-        position={[0, 1.7, labelZ]}
+        position={[0, 1.5, labelZ]}
         scale={Math.max(0.95, w * 0.10)}
         pctColor={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
       />
