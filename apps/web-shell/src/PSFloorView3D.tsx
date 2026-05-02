@@ -262,19 +262,21 @@ function PSSectorBlock({
         <boxGeometry args={[w - 3.0, 1.7, d - 3.0]} />
       </mesh>
 
-      {/* Halo pulsante de status ao redor da base */}
-      <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[w - 0.3, d - 0.3]} />
-        <meshStandardMaterial
-          ref={pulseRef}
-          color={color}
-          emissive={emissive}
-          emissiveIntensity={pct >= 70 ? 0.6 : 0.1}
-          transparent
-          opacity={0.35}
-          depthWrite={false}
-        />
-      </mesh>
+      {/* Aura pulsante de status ao redor da caixa (apenas amarelo e vermelho) */}
+      {pct >= 70 && (
+        <mesh position={[0, 0.9, 0]}>
+          <boxGeometry args={[w - 2.5, 1.9, d - 2.5]} />
+          <meshStandardMaterial
+            ref={pulseRef}
+            color={color}
+            emissive={emissive}
+            emissiveIntensity={0.6}
+            transparent
+            opacity={0.25}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
       {/* Vidro envoltório transparente */}
       <mesh position={[0, 0.9, 0]}>
