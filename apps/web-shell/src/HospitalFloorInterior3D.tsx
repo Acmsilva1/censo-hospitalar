@@ -61,36 +61,61 @@ const bedTexture = new THREE.TextureLoader().load('/cama.png');
 
 function BedModel({ bed, position }: { bed: Bed; position: [number, number, number] }) {
   const occupied = isBedOccupied(bed);
-  const glowRef = useRef<THREE.MeshStandardMaterial>(null);
+  const color = occupied ? '#dc2626' : '#16a34a'; // Vermelho ocupado, Verde livre
+  const emissive = occupied ? '#ef4444' : '#4ade80';
+
+  const pulseMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const pulseMeshRef = useRef<THREE.Mesh>(null);
 
   // Cria materiais para cada face do BoxGeometry [dir, esq, cima, baixo, frente, tras]
   const materials = useMemo(() => [
-    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // lado
-    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // lado
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.4 }),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.4 }),
     new THREE.MeshStandardMaterial({ // TOPO — textura da cama
       map: bedTexture,
-      emissive: occupied ? new THREE.Color('#60a5fa') : new THREE.Color('#4ade80'),
-      emissiveIntensity: occupied ? 0.6 : 0.1,
+      emissive: new THREE.Color(emissive),
+      emissiveIntensity: 0.3,
       roughness: 0.6,
     }),
-    new THREE.MeshStandardMaterial({ color: '#555', roughness: 0.9 }), // baixo
-    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // frente
-    new THREE.MeshStandardMaterial({ color: occupied ? '#2563eb' : '#16a34a', roughness: 0.5, metalness: 0.4 }), // tras
-  ], [occupied]);
+    new THREE.MeshStandardMaterial({ color: '#555', roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.4 }),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.4 }),
+  ], [color, emissive]);
 
+  // Pulso de alerta intermediário e suave em volta da cama
   useFrame(({ clock }) => {
-    if (occupied && materials[2]) {
-      const wave = 0.4 + (Math.sin(clock.elapsedTime * 2.5) + 1) * 0.35;
-      materials[2].emissiveIntensity = wave;
+    const wave = (Math.sin(clock.elapsedTime * 2.5) + 1) / 2; // 0 a 1
+    if (pulseMatRef.current) {
+      pulseMatRef.current.emissiveIntensity = 0.5 + wave * 0.8;
+      pulseMatRef.current.opacity = 0.15 + wave * 0.15;
+    }
+    if (pulseMeshRef.current) {
+      const s = 1.0 + wave * 0.02;
+      pulseMeshRef.current.scale.set(s, s, s);
     }
   });
 
   return (
     <group position={position}>
-      {/* Caixa da cama com textura no topo */}
+      {/* Caixa da cama principal */}
       <mesh position={[0, 0.15, 0]} material={materials}>
         <boxGeometry args={[0.75, 0.28, 1.55]} />
       </mesh>
+
+      {/* Aura pulsante de status ao redor do leito (verde ou vermelho) */}
+      <mesh ref={pulseMeshRef} position={[0, 0.15, 0]}>
+        <boxGeometry args={[0.82, 0.32, 1.62]} />
+        <meshStandardMaterial
+          ref={pulseMatRef}
+          color={color}
+          emissive={emissive}
+          emissiveIntensity={1.0}
+          transparent
+          opacity={0.3}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* Número do leito */}
       <SpriteLabel text={bed.id} position={[0, 0.85, 0]} scale={0.38} bg="transparent" color="#ffffff" />
     </group>
