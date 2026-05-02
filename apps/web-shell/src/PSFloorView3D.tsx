@@ -75,6 +75,76 @@ function SpriteLabel({
   return <sprite position={position} scale={[3.2 * scale, 0.8 * scale, 1]} material={material} />;
 }
 
+// Label grande com glow para nome do setor
+function SectorNameLabel({
+  text, position, scale = 1,
+}: { text: string; position: [number, number, number]; scale?: number }) {
+  const material = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640; canvas.height = 160;
+    const ctx = canvas.getContext('2d')!;
+    // Fundo com gradiente
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#0d3a52');
+    grad.addColorStop(1, '#0a2535');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(4, 4, canvas.width - 8, canvas.height - 8, 36);
+    ctx.fill();
+    // Borda brilhante ciano
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#22d3ee';
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 18;
+    ctx.stroke();
+    // Texto
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 72px Manrope, Segoe UI, sans-serif';
+    ctx.fillStyle = '#f0faff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  }, [text]);
+  return <sprite position={position} scale={[5.2 * scale, 1.3 * scale, 1]} material={material} />;
+}
+
+// Label percentual com cor de status e brilho forte
+function PctLabel({
+  text, position, scale = 1, pctColor,
+}: { text: string; position: [number, number, number]; scale?: number; pctColor: string }) {
+  const material = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 560; canvas.height = 140;
+    const ctx = canvas.getContext('2d')!;
+    // Fundo semi-transparente escuro
+    ctx.fillStyle = 'rgba(5,20,32,0.82)';
+    ctx.beginPath();
+    ctx.roundRect(4, 4, canvas.width - 8, canvas.height - 8, 30);
+    ctx.fill();
+    // Borda colorida por status com glow
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = pctColor;
+    ctx.shadowColor = pctColor;
+    ctx.shadowBlur = 24;
+    ctx.stroke();
+    // Texto grande e brilhante
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = pctColor;
+    ctx.font = 'bold 78px Manrope, Segoe UI, sans-serif';
+    ctx.fillStyle = pctColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  }, [text, pctColor]);
+  return <sprite position={position} scale={[4.6 * scale, 1.15 * scale, 1]} material={material} />;
+}
+
 // ─── Bloco de Setor do PS ─────────────────────────────────────────────────────
 function PSSectorBlock({
   sector, position, size, isBottomHalf,
@@ -169,22 +239,19 @@ function PSSectorBlock({
         />
       </mesh>
 
-      {/* Label: Nome do setor */}
-      <SpriteLabel
+      {/* Label grande: Nome do setor */}
+      <SectorNameLabel
         text={sector.name}
         position={[0, 2.6, labelZ]}
-        scale={Math.max(1.3, w * 0.15)}
-        bg="#0f2d3e"
-        color="#e0f7ff"
+        scale={Math.max(1.0, w * 0.11)}
       />
 
-      {/* Label: Percentual de ocupação */}
-      <SpriteLabel
-        text={`${sector.occupied}/${sector.total} · ${pct}%`}
-        position={[0, 1.9, labelZ]}
-        scale={Math.max(1.1, w * 0.12)}
-        bg="transparent"
-        color={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
+      {/* Label percentual brilhante */}
+      <PctLabel
+        text={`${pct}%  ${sector.occupied}/${sector.total}`}
+        position={[0, 1.7, labelZ]}
+        scale={Math.max(0.95, w * 0.10)}
+        pctColor={pct >= 90 ? '#f87171' : pct >= 70 ? '#fbbf24' : '#4ade80'}
       />
     </group>
   );
