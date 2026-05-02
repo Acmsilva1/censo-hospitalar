@@ -208,13 +208,21 @@ function PSSectorBlock({
   const [w, d] = size;
   const pct = sector.total > 0 ? Math.round((sector.occupied / sector.total) * 100) : 0;
   const { color, emissive } = occupancyColor(pct);
-  const pulseRef = useRef<THREE.MeshStandardMaterial>(null);
+  const pulseMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const pulseMeshRef = useRef<THREE.Mesh>(null);
 
-  // Pulso de alerta quando crítico
+  // Pulso de alerta intenso e "respiração" quando crítico
   useFrame(({ clock }) => {
-    if (pct >= 70 && pulseRef.current) {
-      const wave = 0.4 + (Math.sin(clock.elapsedTime * 2.2) + 1) * 0.35;
-      pulseRef.current.emissiveIntensity = wave;
+    if (pct >= 70) {
+      const wave = (Math.sin(clock.elapsedTime * 3.5) + 1) / 2; // 0 a 1 (rápido)
+      if (pulseMatRef.current) {
+        pulseMatRef.current.emissiveIntensity = 1.0 + wave * 3.5; // Brilho bem mais forte (1.0 a 4.5)
+        pulseMatRef.current.opacity = 0.4 + wave * 0.3; // Opacidade variando (0.4 a 0.7)
+      }
+      if (pulseMeshRef.current) {
+        const s = 1.0 + wave * 0.06; // Cresce até 6%
+        pulseMeshRef.current.scale.set(s, s, s);
+      }
     }
   });
 
@@ -264,15 +272,15 @@ function PSSectorBlock({
 
       {/* Aura pulsante de status ao redor da caixa (apenas amarelo e vermelho) */}
       {pct >= 70 && (
-        <mesh position={[0, 0.9, 0]}>
-          <boxGeometry args={[w - 2.5, 1.9, d - 2.5]} />
+        <mesh ref={pulseMeshRef} position={[0, 0.9, 0]}>
+          <boxGeometry args={[w - 2.4, 2.0, d - 2.4]} />
           <meshStandardMaterial
-            ref={pulseRef}
+            ref={pulseMatRef}
             color={color}
             emissive={emissive}
-            emissiveIntensity={0.6}
+            emissiveIntensity={1.0}
             transparent
-            opacity={0.25}
+            opacity={0.4}
             depthWrite={false}
           />
         </mesh>
