@@ -563,25 +563,19 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
           )}
 
           {mode === 'floor' && selectedFloor && selectedFloor.kind === 'PS' && (
-            <div className="vh-ps-detail">
+            <div className="vh-ps-detail" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '560px', position: 'relative' }}>
               <div className="vh-floor-summary">
                 <strong>{selectedFloor.label}</strong>
                 <span>{psTotalActive} pessoas ativas no PS</span>
               </div>
-              <div className="vh-stage-grid">
-                {psStats.map((stage) => (
-                  <article key={stage.key} className={`vh-stage-card vh-${pressureBand(stage.pct)}`}>
-                    <h4>{stage.label}</h4>
-                    <p>{stage.count} pessoas</p>
-                    <strong>{stage.pct}%</strong>
-                    <div className="vh-avatars">
-                      {Array.from({ length: Math.min(8, Math.max(1, Math.ceil(stage.count / 3))) }).map((_, i) => (
-                        <span key={`${stage.key}-${i}`} />
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <PSFloorView3D
+                floorName={selectedFloor.label}
+                sectors={psStats.map((stage) => ({
+                  name: stage.label,
+                  occupied: stage.count,
+                  total: Math.max(stage.count, 1),
+                }))}
+              />
             </div>
           )}
 
