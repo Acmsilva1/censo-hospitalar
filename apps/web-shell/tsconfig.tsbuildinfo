@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/brazilunitsmap.tsx","./src/hospitalbuilding3d.tsx","./src/hospitalfloorinterior3d.tsx","./src/psfloorview3d.tsx","./src/visaohospitalar.tsx","./src/main.tsx"],"version":"5.9.3"}

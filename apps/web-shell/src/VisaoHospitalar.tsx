@@ -3,6 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 import { HospitalBuilding3D, type BuildingFloor3D } from './HospitalBuilding3D';
 import { HospitalFloorInterior3D } from './HospitalFloorInterior3D';
 import { PSFloorView3D } from './PSFloorView3D';
+import { BrazilUnitsMap } from './BrazilUnitsMap';
 
 type VisaoHospitalarProps = {
   censoApiUrl: string;
@@ -478,27 +479,15 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
   return (
     <div className="vh-root">
       {mode === 'units' && (
-        <section className="vh-units">
-          <h2>Visao hospitalar</h2>
-          <p>Selecione a unidade para abrir o predio e navegar por andares.</p>
-          {unitsLoading && <p>Carregando unidades...</p>}
-          <div className="vh-unit-grid">
-            {hospitals.map((hospital) => (
-              <button
-                key={hospital.id}
-                className="vh-unit-card"
-                onClick={() => {
-                  setSelectedHospital(hospital.id);
-                  setMode('building');
-                  setSelectedFloorId('');
-                }}
-              >
-                <div className="vh-unit-icon">🏥</div>
-                <span>{hospital.label}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        <BrazilUnitsMap
+          hospitals={hospitals}
+          unitsLoading={unitsLoading}
+          onSelectUnit={(unitId) => {
+            setSelectedHospital(unitId);
+            setMode('building');
+            setSelectedFloorId('');
+          }}
+        />
       )}
 
       {mode !== 'units' && (
@@ -677,11 +666,11 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                 <div className="vh-floor-sketch" style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
                   {/* Detecta se é PS pela ausência de leitos ou pelo nome do andar */}
                   {(selectedFloor.beds.length === 0 && (!selectedFloor.sectors || selectedFloor.sectors.length === 0)) || 
-                   String(selectedFloor.name ?? '').toLowerCase().includes('ps') || 
-                   String(selectedFloor.name ?? '').toLowerCase().includes('pronto') ? (
+                   String(selectedFloor.label ?? '').toLowerCase().includes('ps') || 
+                   String(selectedFloor.label ?? '').toLowerCase().includes('pronto') ? (
                     <PSFloorView3D
                       key={selectedFloor.id}
-                      floorName={selectedFloor.name}
+                      floorName={selectedFloor.label}
                       sectors={
                         selectedFloor.sectors && selectedFloor.sectors.length > 0
                           ? selectedFloor.sectors.map(s => ({ name: s.name, occupied: s.occupied, total: s.total }))
@@ -714,4 +703,5 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
     </div>
   );
 }
+
 
