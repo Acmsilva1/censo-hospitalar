@@ -86,6 +86,16 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
 
   // Pulso de alerta mais forte para ser visível de longe
   useFrame(({ clock }) => {
+    if (!occupied) {
+      if (pulseMatRef.current) {
+        pulseMatRef.current.emissiveIntensity = 0;
+        pulseMatRef.current.opacity = 0;
+      }
+      if (pulseMeshRef.current) {
+        pulseMeshRef.current.scale.set(1, 1, 1);
+      }
+      return;
+    }
     const wave = (Math.sin(clock.elapsedTime * 3.0) + 1) / 2; // 0 a 1
     if (pulseMatRef.current) {
       pulseMatRef.current.emissiveIntensity = 0.8 + wave * 1.5; // Mais brilho
@@ -109,18 +119,20 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
       </mesh>
 
       {/* Aura pulsante de status ao redor do leito (verde ou vermelho) */}
-      <mesh ref={pulseMeshRef} position={[0, 0.15, 0]}>
-        <boxGeometry args={[0.88, 0.38, 1.68]} />
-        <meshStandardMaterial
-          ref={pulseMatRef}
-          color={color}
-          emissive={emissive}
-          emissiveIntensity={1.0}
-          transparent
-          opacity={0.5}
-          depthWrite={false}
-        />
-      </mesh>
+      {occupied && (
+        <mesh ref={pulseMeshRef} position={[0, 0.15, 0]}>
+          <boxGeometry args={[0.88, 0.38, 1.68]} />
+          <meshStandardMaterial
+            ref={pulseMatRef}
+            color={color}
+            emissive={emissive}
+            emissiveIntensity={1.0}
+            transparent
+            opacity={0.5}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
       {/* Tooltip do leito ao passar o mouse */}
       {hovered && (
