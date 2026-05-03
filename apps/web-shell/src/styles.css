@@ -210,6 +210,15 @@ header h1 {
   line-height: 1.15;
 }
 header p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.shell-header-visao {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.shell-header-visao h1 {
+  font-size: clamp(24px, 2.3vw, 34px);
+}
 nav { display: flex; gap: 8px; }
 nav button {
   border: 1px solid var(--border);
@@ -291,25 +300,25 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 .vh-units h2 {
   margin: 0;
   font-family: "Sora", "Manrope", sans-serif;
-  font-size: clamp(32px, 3.2vw, 52px);
+  font-size: clamp(26px, 2.4vw, 40px);
 }
 
 .vh-units p {
-  margin: 10px 0 24px;
+  margin: 8px 0 16px;
   color: #bcd4e8;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .vh-map-section {
   justify-content: flex-start;
-  padding-top: clamp(24px, 4vw, 44px);
+  padding: 8px 14px 14px;
 }
 
 .vh-map-shell {
   position: relative;
-  width: min(1200px, 100%);
-  margin-top: 8px;
-  padding: 18px;
+  width: min(1380px, 100%);
+  margin-top: 0;
+  padding: 10px;
   border-radius: 20px;
   border: 1px solid #91f0bd40;
   background:
@@ -330,7 +339,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 .vh-map-viewport {
   position: relative;
   width: 100%;
-  aspect-ratio: 10 / 6.3;
+  height: min(80vh, 880px);
   transform: perspective(1250px) rotateX(8deg);
   transform-origin: center bottom;
 }
@@ -341,41 +350,84 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 }
 
 .vh-map-state-group {
-  transition: transform 180ms ease;
+  transition: transform 220ms ease, filter 220ms ease;
 }
 
 .vh-map-state-extrude {
   transform: translate(0px, 7px);
   fill: #0a2a1f;
-  opacity: 0.9;
+  opacity: 0.65;
 }
 
 .vh-map-state {
-  stroke: #b7f7cf55;
-  stroke-width: 1.2;
+  stroke: #9fdcbf80;
+  stroke-width: 1.35;
   transition: filter 180ms ease, stroke 180ms ease, fill 180ms ease;
+}
+
+.vh-map-state.has-units {
+  stroke: #ffffffbf;
+  stroke-width: 1.2;
+  fill-opacity: 0.48;
+  filter: saturate(1.02);
+}
+
+.vh-map-state-glass-highlight {
+  fill: url(#vh-state-glass-highlight);
+  opacity: 0.42;
+  pointer-events: none;
 }
 
 .vh-map-state.is-hot {
   stroke: #bbf7d0d6;
 }
 
+.vh-map-boundary {
+  fill: none;
+  stroke: #7fd8b299;
+  stroke-width: 1.95;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: none;
+  filter: drop-shadow(0 0 1px #02261d88);
+}
+
+.vh-df-emphasis-ring {
+  fill: #fde04788;
+  stroke: #fff6bf;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.vh-df-emphasis-core {
+  fill: #facc15;
+  pointer-events: none;
+}
+
 .vh-marker {
   cursor: pointer;
-  transition: filter 160ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: filter 180ms ease;
+}
+
+.vh-marker-hit {
+  fill: transparent;
 }
 
 .vh-marker-halo {
   fill: #f43f5e30;
-  animation: vhMarkerPulse 1.9s ease-in-out infinite;
+  transition: transform 180ms ease, opacity 180ms ease;
+  opacity: 0.75;
   pointer-events: none;
 }
 
 .vh-marker-pin {
-  fill: #ef4444;
   stroke: #fee2e2;
-  stroke-width: 1.1;
-  filter: drop-shadow(0 4px 6px #420a0aa6);
+  stroke-width: 1.05;
+  filter: drop-shadow(0 2px 3px #420a0a8a);
+  transition: filter 180ms ease, stroke-width 180ms ease;
 }
 
 .vh-marker-dot {
@@ -384,6 +436,12 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 
 .vh-marker.is-active .vh-marker-pin {
   fill: #dc2626;
+  stroke-width: 1.2;
+  filter: drop-shadow(0 4px 8px #3f0707c0);
+}
+
+.vh-marker.is-active .vh-marker-halo {
+  opacity: 1;
 }
 
 .vh-state-label {
@@ -393,20 +451,20 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   letter-spacing: 0.04em;
   fill: #ffffff;
   paint-order: stroke;
-  stroke: #022c22;
-  stroke-width: 3px;
+  stroke: #012118;
+  stroke-width: 3.4px;
   stroke-linejoin: round;
   pointer-events: none;
-  filter: drop-shadow(0 2px 4px #001a1494);
+  filter: drop-shadow(0 1px 2px #001a1494);
 }
 
 .vh-tooltip-3d {
   position: absolute;
   min-width: 210px;
   max-width: 260px;
-  border: 1px solid #a7f3d080;
+  border: 1px solid var(--vh-tooltip-border, #a7f3d080);
   border-radius: 12px;
-  background: linear-gradient(160deg, #1d4f3adf 0%, #113728e8 60%, #0f2f22ee 100%);
+  background: linear-gradient(160deg, var(--vh-tooltip-bg-a, #1d4f3adf) 0%, var(--vh-tooltip-bg-b, #113728e8) 100%);
   box-shadow: 0 18px 30px #00150f8f, inset 0 1px 0 #ecfdf533;
   padding: 10px 12px;
   display: flex;
@@ -430,13 +488,56 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 
 .vh-tooltip-3d button {
   align-self: flex-start;
-  border: 1px solid #6ee7b7;
+  border: 1px solid color-mix(in srgb, var(--vh-tooltip-btn-b, #34d399) 80%, white);
   border-radius: 8px;
   padding: 5px 10px;
   font-weight: 800;
-  color: #03291d;
-  background: linear-gradient(145deg, #6ee7b7, #34d399);
+  color: var(--vh-tooltip-btn-text, #03291d);
+  background: linear-gradient(145deg, var(--vh-tooltip-btn-a, #6ee7b7), var(--vh-tooltip-btn-b, #34d399));
   cursor: pointer;
+}
+
+.vh-marker-legend {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  max-width: 280px;
+  max-height: 38%;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid #ffffff24;
+  background: #061b2ab8;
+  backdrop-filter: blur(2px);
+  box-shadow: 0 8px 18px #00000045;
+  padding: 8px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 7;
+}
+
+.vh-marker-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.vh-marker-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid #ffffffa8;
+  flex: 0 0 auto;
+}
+
+.vh-marker-legend-label {
+  font-size: 11px;
+  line-height: 1.2;
+  color: #e2eefb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .vh-unit-grid {
@@ -556,7 +657,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   border-radius: 14px;
   overflow: hidden;
   position: relative;
-  background: radial-gradient(circle at 52% 14%, #8ec0df 0%, #6ca0c2 50%, #5a89aa 100%);
+  background: radial-gradient(circle at 52% 14%, #8a9098 0%, #6f767f 50%, #5a616a 100%);
   box-shadow: inset 0 1px 0 #d7f2ff17, 0 24px 46px #03101d86;
 }
 
@@ -1149,6 +1250,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   .vh-outside-legend { max-height: none; }
   .vh-map-viewport {
     transform: none;
+    height: min(66vh, 640px);
   }
   .vh-tooltip-3d {
     transform: none;

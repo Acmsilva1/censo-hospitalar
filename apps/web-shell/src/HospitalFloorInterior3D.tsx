@@ -228,11 +228,11 @@ export const HospitalFloorInterior3D = memo(function HospitalFloorInterior3D({ s
   return (
     <div className="vh-canvas-wrap" style={{ flex: 1, minHeight: '560px', width: '100%' }}>
       <Canvas camera={{ position: [0, camY, camZ], fov: 36 }}>
-        <color attach="background" args={['#6ea9d0']} />
+        <color attach="background" args={['#5f666f']} />
         <ambientLight intensity={1.1} />
         <directionalLight position={[10, 20, 10]} intensity={1.4} />
-        <pointLight position={[-10, 15, -10]} intensity={0.6} color="#d5f3ff" />
-        <hemisphereLight args={['#e7f7ff', '#5d89aa', 0.8]} />
+        <pointLight position={[-10, 15, -10]} intensity={0.55} color="#d1d5db" />
+        <hemisphereLight args={['#e2e8f0', '#475569', 0.68]} />
 
         <group rotation={[0.08, -0.3, 0]} position={[0, 1.8, 0]}>
           {/* Fundação procedural imitando o exterior do prédio */}

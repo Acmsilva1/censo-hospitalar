@@ -105,9 +105,9 @@ export function App() {
         </main>
 
         <section className="shell">
-          <header>
-            <h1>Jornada do Paciente</h1>
-            <p>Orquestrador central de conexoes, estado e roteamento entre modulos.</p>
+          <header className={screen === 'visao' ? 'shell-header-visao' : ''}>
+            <h1>{screen === 'visao' ? 'Visao hospitalar' : 'Jornada do Paciente'}</h1>
+            {screen !== 'visao' && <p>Orquestrador central de conexoes, estado e roteamento entre modulos.</p>}
           </header>
 
           <nav>

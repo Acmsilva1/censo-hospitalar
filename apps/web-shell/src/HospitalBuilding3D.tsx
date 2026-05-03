@@ -662,47 +662,47 @@ export const HospitalBuilding3D = memo(function HospitalBuilding3D({ floors, onS
   return (
     <div className="vh-canvas-wrap" ref={wrapRef}>
       <Canvas camera={{ position: [8.3, 4.9, 7.2], fov: 34 }}>
-        <color attach="background" args={['#6ea9d0']} />
-        <fog attach="fog" args={['#6ea9d0', 16, 42]} />
+        <color attach="background" args={['#5f666f']} />
+        <fog attach="fog" args={['#5f666f', 16, 42]} />
         <ambientLight intensity={1.05} />
         <directionalLight position={[10, 16, 8]} intensity={1.55} />
-        <pointLight position={[-7, 5, 6]} color="#d5f3ff" intensity={1.1} />
-        <pointLight position={[7, 3, -6]} color="#a9d4ff" intensity={0.8} />
-        <hemisphereLight args={['#e7f7ff', '#5d89aa', 0.6]} />
-        <pointLight position={[3.2, 1.8, 2.4]} color="#8fdfff" intensity={0.35} />
+        <pointLight position={[-7, 5, 6]} color="#e5e7eb" intensity={1.0} />
+        <pointLight position={[7, 3, -6]} color="#cbd5e1" intensity={0.75} />
+        <hemisphereLight args={['#e2e8f0', '#475569', 0.55]} />
+        <pointLight position={[3.2, 1.8, 2.4]} color="#d1d5db" intensity={0.28} />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.45, 0]}>
           <planeGeometry args={[56, 56]} />
-          <meshStandardMaterial color="#7ba9c6" roughness={0.94} metalness={0.02} />
+          <meshStandardMaterial color="#6b7280" roughness={0.94} metalness={0.02} />
         </mesh>
 
         <mesh position={[0, 8.5, -18]}>
           <sphereGeometry args={[20, 32, 32]} />
-          <meshStandardMaterial color="#8bc3e8" emissive="#8bc3e8" emissiveIntensity={0.12} side={1} />
+          <meshStandardMaterial color="#7c8794" emissive="#7c8794" emissiveIntensity={0.06} side={1} />
         </mesh>
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.437, 0.4]}>
           <planeGeometry args={[13.6, 11.6]} />
-          <meshStandardMaterial color="#c3d4df" />
+          <meshStandardMaterial color="#a7afb9" />
         </mesh>
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.435, 0.4]}>
           <planeGeometry args={[11.0, 9.0]} />
-          <meshStandardMaterial color="#9bb8cc" />
+          <meshStandardMaterial color="#8f98a3" />
         </mesh>
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.434, 0.4]}>
           <planeGeometry args={[10.2, 8.2]} />
-          <meshStandardMaterial color="#b8cad8" />
+          <meshStandardMaterial color="#a2acb7" />
         </mesh>
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.6, -2.43, -7.8]}>
           <planeGeometry args={[36, 3.0]} />
-          <meshStandardMaterial color="#4f6f84" />
+          <meshStandardMaterial color="#55606d" />
         </mesh>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[9.4, -2.43, 0.8]}>
           <planeGeometry args={[3.0, 29]} />
-          <meshStandardMaterial color="#516f83" />
+          <meshStandardMaterial color="#56616d" />
         </mesh>
 
         <CarLowPoly x={8.5} y={-2.08} z={-6.2} color="#e35d6a" />

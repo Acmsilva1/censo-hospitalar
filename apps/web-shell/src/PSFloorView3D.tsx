@@ -368,11 +368,11 @@ export const PSFloorView3D = memo(function PSFloorView3D({ sectors, floorName }:
   return (
     <div style={{ flex: 1, minHeight: '560px', width: '100%' }}>
       <Canvas camera={{ position: [0, camY, camZ], fov: 36 }}>
-        <color attach="background" args={['#6ea9d0']} />
+        <color attach="background" args={['#5f666f']} />
         <ambientLight intensity={1.2} />
         <directionalLight position={[10, 22, 10]} intensity={1.5} />
-        <pointLight position={[-10, 18, -10]} intensity={0.7} color="#d5f3ff" />
-        <hemisphereLight args={['#e7f7ff', '#5d89aa', 0.9]} />
+        <pointLight position={[-10, 18, -10]} intensity={0.65} color="#d1d5db" />
+        <hemisphereLight args={['#e2e8f0', '#475569', 0.72]} />
 
         <group rotation={[0.08, -0.3, 0]} position={[0, 0.5, 0]}>
           {/* Fundação procedural */}
