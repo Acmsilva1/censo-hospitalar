@@ -1,4 +1,4 @@
-import { useMemo, useRef, memo } from 'react';
+import { useMemo, useRef, memo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -27,28 +27,29 @@ function isBedOccupied(bed: Bed) {
 function SpriteLabel({ text, position, scale = 1, color = '#ffffff', bg = '#0f293e' }: { text: string; position: [number, number, number]; scale?: number; color?: string; bg?: string }) {
   const material = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
+    canvas.width = 1024;
+    canvas.height = 256;
     const ctx = canvas.getContext('2d');
     if (ctx) {
       if (bg !== 'transparent') {
         ctx.fillStyle = bg;
         ctx.beginPath();
-        ctx.roundRect(0, 0, canvas.width, canvas.height, 32);
+        ctx.roundRect(0, 0, canvas.width, canvas.height, 64);
         ctx.fill();
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 8;
         ctx.strokeStyle = '#35d3ff';
         ctx.stroke();
       }
       
-      ctx.font = '700 48px Manrope, Segoe UI, sans-serif';
+      ctx.font = '800 110px Manrope, Segoe UI, sans-serif';
       ctx.fillStyle = color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 8); // +8 para ajuste vertical ótico
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
     return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
   }, [text, color, bg]);
 
@@ -66,6 +67,7 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
 
   const pulseMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const pulseMeshRef = useRef<THREE.Mesh>(null);
+  const [hovered, setHovered] = useState(false);
 
   // Cria materiais para cada face do BoxGeometry [dir, esq, cima, baixo, frente, tras]
   const materials = useMemo(() => [
@@ -96,7 +98,11 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
   });
 
   return (
-    <group position={position}>
+    <group 
+      position={position}
+      onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
+      onPointerOut={(e) => { setHovered(false); document.body.style.cursor = 'default'; }}
+    >
       {/* Caixa da cama principal */}
       <mesh position={[0, 0.15, 0]} material={materials}>
         <boxGeometry args={[0.75, 0.28, 1.55]} />
@@ -116,8 +122,16 @@ function BedModel({ bed, position }: { bed: Bed; position: [number, number, numb
         />
       </mesh>
 
-      {/* Número do leito */}
-      <SpriteLabel text={bed.id} position={[0, 0.85, 0]} scale={0.38} bg="transparent" color="#ffffff" />
+      {/* Tooltip do leito ao passar o mouse */}
+      {hovered && (
+        <SpriteLabel 
+          text={`Leito ${bed.id}`} 
+          position={[0, 1.2, 0]} 
+          scale={1.6} 
+          bg="rgba(5, 18, 27, 0.9)" 
+          color="#aee6ff" 
+        />
+      )}
     </group>
   );
 }

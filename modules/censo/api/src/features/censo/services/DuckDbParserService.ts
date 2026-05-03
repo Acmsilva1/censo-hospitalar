@@ -65,6 +65,9 @@ export class DuckDbParserService {
 
       // Filtragem de Inativos sem paciente (Garantia anti-fantasma)
       if (row.ieSituacao === 'I' && !row.patientId) return;
+      
+      // Filtragem específica de leitos inexistentes reportados (somente para Hospital Vitória)
+      if ((row.id === '201' || row.id === '201A') && hospitalName.toUpperCase().includes('VITORIA')) return;
 
       // Status e Emojis
       const status = row.status || 'Disponível';

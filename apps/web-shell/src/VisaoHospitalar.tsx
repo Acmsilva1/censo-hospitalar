@@ -503,12 +503,82 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
 
       {mode !== 'units' && (
         <section className="vh-viewer">
-          <header className="vh-topbar">
-            <div>
-              <h3>{currentHospitalLabel}</h3>
-              <small>{mode === 'building' ? 'Clique em um andar para detalhes' : 'Detalhes do andar selecionado'}</small>
+          <header className="vh-topbar" style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px 24px', flexWrap: 'nowrap' }}>
+            <div style={{ flexShrink: 0, minWidth: '200px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px' }}>{currentHospitalLabel}</h3>
+              <small style={{ color: '#6b8a9e' }}>{mode === 'building' ? 'Clique em um andar para detalhes' : 'Navegação de andares'}</small>
             </div>
-            <div className="vh-actions">
+
+            {/* Navegação rápida entre andares (Tabs -> Cards de Detalhe) */}
+            {mode === 'floor' && (
+              <div className="vh-floor-tabs" style={{ 
+                flex: 1,
+                display: 'flex', gap: '12px', padding: '4px', 
+                overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+                alignItems: 'center',
+                scrollbarWidth: 'none', // Firefox
+                msOverflowStyle: 'none'  // IE/Edge
+              }}>
+                <style>{`.vh-floor-tabs::-webkit-scrollbar { display: none; }`}</style>
+                {floors.map(f => {
+                  const isSelected = selectedFloorId === f.id;
+                  const band = pressureBand(f.pct);
+                  const statusColor = band === 'high' ? '#ef4444' : band === 'mid' ? '#f59e0b' : '#10b981';
+                  const statusBg = band === 'high' ? 'rgba(239, 68, 68, 0.15)' : band === 'mid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+                  const titleParts = f.label.split(' - ');
+                  const shortTitle = titleParts.length > 1 ? titleParts[0] : f.label;
+                  
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => setSelectedFloorId(f.id)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        gap: '6px',
+                        minWidth: '200px',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: '1px solid',
+                        borderColor: isSelected ? '#35d3ff' : '#1e3a4a',
+                        backgroundColor: isSelected ? 'rgba(10, 40, 60, 0.8)' : '#05121b',
+                        color: isSelected ? '#ffffff' : '#9eb3c1',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(53, 211, 255, 0.3)' : '0 2px 4px rgba(0,0,0,0.2)',
+                        textAlign: 'left',
+                        flexShrink: 0
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                          {shortTitle}
+                        </span>
+                        <span style={{ 
+                          fontSize: '11px', 
+                          fontWeight: 'bold', 
+                          padding: '2px 6px', 
+                          borderRadius: '12px', 
+                          backgroundColor: statusBg, 
+                          color: statusColor,
+                          border: `1px solid ${statusColor}40`,
+                          boxShadow: `0 0 8px ${statusColor}20`
+                        }}>
+                          {f.pct}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: isSelected ? '#aee6ff' : '#6b8a9e' }}>
+                        <span>{f.kind === 'PS' ? 'Pronto Socorro' : f.kind === 'UTI_UPC' ? 'UTI/UPC' : 'Internação'}</span>
+                        <span style={{ fontWeight: '600' }}>{f.kind === 'PS' ? `${f.occupied} ativos` : `${f.occupied}/${f.total}`}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="vh-actions" style={{ flexShrink: 0, display: 'flex', gap: '8px' }}>
               {mode === 'floor' && (
                 <button onClick={() => setMode('building')} className="vh-btn-secondary">
                   Voltar ao predio
@@ -523,76 +593,10 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                 }}
                 className="vh-btn-primary"
               >
-                Voltar
+                SAIR
               </button>
             </div>
           </header>
-
-          {/* Navegação rápida entre andares (Tabs -> Cards de Detalhe) */}
-          {mode === 'floor' && (
-            <div className="vh-floor-tabs" style={{ 
-              display: 'flex', gap: '16px', padding: '16px 24px', 
-              backgroundColor: '#0a1d2e', borderBottom: '1px solid #1a364a', 
-              overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-              alignItems: 'center',
-              boxShadow: 'inset 0 -10px 20px rgba(0,0,0,0.1)'
-            }}>
-              {floors.map(f => {
-                const isSelected = selectedFloorId === f.id;
-                const band = pressureBand(f.pct);
-                const statusColor = band === 'high' ? '#ef4444' : band === 'mid' ? '#f59e0b' : '#10b981';
-                const statusBg = band === 'high' ? 'rgba(239, 68, 68, 0.15)' : band === 'mid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
-                const titleParts = f.label.split(' - ');
-                const shortTitle = titleParts.length > 1 ? titleParts[0] : f.label;
-                
-                return (
-                  <button
-                    key={f.id}
-                    onClick={() => setSelectedFloorId(f.id)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: '8px',
-                      minWidth: '220px',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: '1px solid',
-                      borderColor: isSelected ? '#35d3ff' : '#1e3a4a',
-                      backgroundColor: isSelected ? 'rgba(10, 40, 60, 0.8)' : '#05121b',
-                      color: isSelected ? '#ffffff' : '#9eb3c1',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(53, 211, 255, 0.3)' : '0 4px 6px rgba(0,0,0,0.2)',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                      <span style={{ fontSize: '15px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                        {shortTitle}
-                      </span>
-                      <span style={{ 
-                        fontSize: '12px', 
-                        fontWeight: 'bold', 
-                        padding: '4px 8px', 
-                        borderRadius: '12px', 
-                        backgroundColor: statusBg, 
-                        color: statusColor,
-                        border: `1px solid ${statusColor}40`,
-                        boxShadow: `0 0 8px ${statusColor}20`
-                      }}>
-                        {f.pct}%
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '12px', color: isSelected ? '#aee6ff' : '#6b8a9e' }}>
-                      <span>{f.kind === 'PS' ? 'Pronto Socorro' : f.kind === 'UTI_UPC' ? 'UTI / UPC' : 'Internação'}</span>
-                      <span style={{ fontWeight: '600' }}>{f.kind === 'PS' ? `${f.occupied} ativos` : `${f.occupied}/${f.total} leitos`}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
 
           {mode === 'building' && (
             <div className="vh-building-real-wrap">
@@ -676,6 +680,7 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                    String(selectedFloor.name ?? '').toLowerCase().includes('ps') || 
                    String(selectedFloor.name ?? '').toLowerCase().includes('pronto') ? (
                     <PSFloorView3D
+                      key={selectedFloor.id}
                       floorName={selectedFloor.name}
                       sectors={
                         selectedFloor.sectors && selectedFloor.sectors.length > 0
@@ -685,6 +690,7 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                     />
                   ) : (
                     <HospitalFloorInterior3D
+                      key={selectedFloor.id}
                       sectors={
                         selectedFloor.sectors && selectedFloor.sectors.length > 0
                           ? selectedFloor.sectors
