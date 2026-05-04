@@ -27,33 +27,39 @@ function isBedOccupied(bed: Bed) {
 function SpriteLabel({ text, position, scale = 1, color = '#ffffff', bg = '#0f293e' }: { text: string; position: [number, number, number]; scale?: number; color?: string; bg?: string }) {
   const material = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 256;
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      if (bg !== 'transparent') {
-        ctx.fillStyle = bg;
-        ctx.beginPath();
-        ctx.roundRect(0, 0, canvas.width, canvas.height, 64);
-        ctx.fill();
-        ctx.lineWidth = 8;
-        ctx.strokeStyle = '#35d3ff';
-        ctx.stroke();
-      }
-      
-      ctx.font = '800 110px Manrope, Segoe UI, sans-serif';
-      ctx.fillStyle = color;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 8); // +8 para ajuste vertical ótico
+    if (!ctx) return new THREE.SpriteMaterial();
+    
+    ctx.font = '800 110px Manrope, Segoe UI, sans-serif';
+    const metrics = ctx.measureText(text);
+    canvas.width = Math.max(1024, metrics.width + 160);
+    canvas.height = 256;
+    
+    // Reset font after resizing
+    ctx.font = '800 110px Manrope, Segoe UI, sans-serif';
+
+    if (bg !== 'transparent') {
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, canvas.width, canvas.height, 64);
+      ctx.fill();
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#35d3ff';
+      ctx.stroke();
     }
+    
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 8);
+    
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
     return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
   }, [text, color, bg]);
 
-  return <sprite position={position} scale={[2.8 * scale, 0.7 * scale, 1]} material={material} />;
+  const scaleX = Math.max(2.8, (text.length * 0.22) * scale);
+  return <sprite position={position} scale={[scaleX, 0.7 * scale, 1]} material={material} />;
 }
 
 // Carrega uma vez, compartilhado entre todas as camas
@@ -263,6 +269,55 @@ export const HospitalFloorInterior3D = memo(function HospitalFloorInterior3D({ s
           </group>
         </group>
       </Canvas>
+
+      <div
+        aria-label="Legenda dos leitos"
+        style={{
+          position: 'absolute',
+          top: 12,
+          left: 14,
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          background: 'rgba(10, 28, 42, 0.78)',
+          borderRadius: 10,
+          padding: '8px 14px',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(141, 223, 255, 0.22)',
+          fontSize: 12,
+          color: '#e8f4fc',
+          pointerEvents: 'none',
+          lineHeight: 1.25,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: 3,
+              background: '#dc2626',
+              boxShadow: '0 0 10px rgba(220, 38, 38, 0.45)',
+              flexShrink: 0,
+            }}
+          />
+          <span>Ocupado</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: 3,
+              background: '#16a34a',
+              boxShadow: '0 0 8px rgba(22, 163, 74, 0.35)',
+              flexShrink: 0,
+            }}
+          />
+          <span>Livre</span>
+        </div>
+      </div>
     </div>
   );
 });

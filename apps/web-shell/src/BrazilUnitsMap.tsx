@@ -7,6 +7,10 @@ type BrazilUnitsMapProps = {
   hospitals: UnitOption[];
   unitsLoading: boolean;
   onSelectUnit: (unitId: string) => void;
+  /** Painel estreito ao lado do prédio — viewport e shell mais compactos */
+  layout?: 'full' | 'rail';
+  /** Destaca o pino da unidade atualmente aberta no viewer */
+  selectedUnitId?: string;
 };
 
 type GeoFeature = {
@@ -210,7 +214,7 @@ function nearestPointInsideState(
   preferred: [number, number]
 ): [number, number] {
   if (!stateFeature) return preferred;
-  const ll0 = projection.invert(preferred);
+  const ll0 = projection.invert?.(preferred);
   if (ll0 && geoContains(stateFeature as any, ll0 as [number, number])) return preferred;
 
   let best = preferred;
@@ -219,7 +223,7 @@ function nearestPointInsideState(
     for (let a = 0; a < 360; a += 20) {
       const rad = (a * Math.PI) / 180;
       const candidate: [number, number] = [preferred[0] + Math.cos(rad) * r, preferred[1] + Math.sin(rad) * r];
-      const ll = projection.invert(candidate);
+      const ll = projection.invert?.(candidate);
       if (!ll || !geoContains(stateFeature as any, ll as [number, number])) continue;
       const d = Math.hypot(candidate[0] - preferred[0], candidate[1] - preferred[1]);
       if (d < bestDist) {
@@ -232,7 +236,40 @@ function nearestPointInsideState(
   return best;
 }
 
-export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: BrazilUnitsMapProps) {
+/** Posição do tooltip em % do viewport, mantendo caixa dentro do mapa (coords SVG 0…MAP) */
+function tooltipPercentsForPin(
+  pinX: number,
+  pinY: number,
+  dx: number,
+  dy: number,
+  layout: 'full' | 'rail'
+): { left: string; top: string } {
+  const reserveX = layout === 'rail' ? 0.3 * MAP_WIDTH : 0.24 * MAP_WIDTH;
+  const ax = pinX + dx;
+  const ay = pinY + dy;
+
+  let leftSvg = ax + 8;
+  if (leftSvg + reserveX > MAP_WIDTH - 14) {
+    leftSvg = ax - reserveX - 8;
+  }
+  leftSvg = Math.min(MAP_WIDTH - reserveX - 16, Math.max(10, leftSvg));
+
+  let topSvg = ay - 42;
+  topSvg = Math.min(MAP_HEIGHT - 118, Math.max(8, topSvg));
+
+  return {
+    left: `${(leftSvg / MAP_WIDTH) * 100}%`,
+    top: `${(topSvg / MAP_HEIGHT) * 100}%`,
+  };
+}
+
+export function BrazilUnitsMap({
+  hospitals,
+  unitsLoading,
+  onSelectUnit,
+  layout = 'full',
+  selectedUnitId = '',
+}: BrazilUnitsMapProps) {
   const [geoData, setGeoData] = useState<GeoFeatureCollection | null>(null);
   const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [hoveredUf, setHoveredUf] = useState<string | null>(null);
@@ -408,7 +445,7 @@ export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: Brazil
           const candidate: [number, number] = [pin.x + ox, pin.y + oy];
           let insideState = true;
           if (stateFeature) {
-            const ll = projection.invert(candidate);
+            const ll = projection.invert?.(candidate);
             insideState = !!ll && geoContains(stateFeature as any, ll as [number, number]);
           }
           if (!insideState) continue;
@@ -451,6 +488,11 @@ export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: Brazil
   const activePin = useMemo(
     () => unitPins.find((u) => u.id === activeUnitId) || null,
     [activeUnitId, unitPins]
+  );
+
+  const selectedPin = useMemo(
+    () => (selectedUnitId ? unitPins.find((u) => u.id === selectedUnitId) || null : null),
+    [selectedUnitId, unitPins]
   );
 
   const legendItems = useMemo(() => {
@@ -502,13 +544,19 @@ export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: Brazil
   }, [geoData?.features, stateCentroids, unitPins]);
 
   return (
-    <section className="vh-units vh-map-section">
+    <section className={`vh-units vh-map-section${layout === 'rail' ? ' vh-map-layout-rail' : ''}`}>
       {unitsLoading && <p>Carregando unidades...</p>}
 
       <div className="vh-map-shell">
         <div className="vh-map-3d-plane" />
         <div className="vh-map-viewport">
-          <svg viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} className="vh-map-svg" role="img" aria-label="Mapa do Brasil com unidades">
+          <svg
+            viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+            className="vh-map-svg"
+            role="img"
+            aria-label="Mapa do Brasil com unidades"
+            preserveAspectRatio="xMidYMid meet"
+          >
             <defs>
               <filter id="vh-map-shadow" x="-20%" y="-20%" width="140%" height="160%">
                 <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#031913" floodOpacity="0.55" />
@@ -530,7 +578,10 @@ export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: Brazil
                 if (!d) return null;
                 const uf = feature.properties?.sigla || '';
                 const count = unitCountByUf.get(uf) || 0;
-                const isHot = hoveredUf === uf || (activePin && activePin.uf === uf);
+                const isHot =
+                  hoveredUf === uf ||
+                  (activePin && activePin.uf === uf) ||
+                  (selectedPin && selectedPin.uf === uf);
                 const hasUnits = count > 0;
 
                 return (
@@ -573,7 +624,7 @@ export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: Brazil
               })}
 
               {unitPins.map((pin) => {
-                const isActive = activePin?.id === pin.id;
+                const isActive = activePin?.id === pin.id || pin.id === selectedUnitId;
                 const baseScale = MARKER_SCALE;
                 return (
                   <g
@@ -620,12 +671,19 @@ export function BrazilUnitsMap({ hospitals, unitsLoading, onSelectUnit }: Brazil
           {activePin && (
             (() => {
               const theme = tooltipThemeForUnitKey(activePin.key);
+              const pos = tooltipPercentsForPin(
+                activePin.x,
+                activePin.y,
+                mapCenterOffset.dx,
+                mapCenterOffset.dy,
+                layout
+              );
               return (
             <div
-              className="vh-tooltip-3d"
+              className={`vh-tooltip-3d${layout === 'rail' ? ' vh-tooltip-3d--rail' : ''}`}
               style={{
-                left: `${Math.min(MAP_WIDTH - 220, Math.max(20, activePin.x + mapCenterOffset.dx + 6)) / MAP_WIDTH * 100}%`,
-                top: `${Math.min(MAP_HEIGHT - 120, Math.max(10, activePin.y + mapCenterOffset.dy - 44)) / MAP_HEIGHT * 100}%`,
+                left: pos.left,
+                top: pos.top,
                 ['--vh-tooltip-bg-a' as any]: theme.bgA,
                 ['--vh-tooltip-bg-b' as any]: theme.bgB,
                 ['--vh-tooltip-border' as any]: theme.border,

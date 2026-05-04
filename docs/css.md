@@ -29,7 +29,7 @@ Ao usar variáveis no `:root`, qualquer componente que utilize `var(--primary)` 
 
 ## 2. Orquestração de Temas (Theming)
 
-O [ThemeProvider](file:///c:/alertas/command-center-insight-command/web/useTheme.jsx#10-148) em [web/useTheme.jsx](file:///c:/alertas/command-center-insight-command/web/useTheme.jsx) gerencia as classes no `document.documentElement`.
+O ThemeProvider em web/useTheme.jsx gerencia as classes no `document.documentElement`.
 
 | Tema | Classe HTML | Efeito Principal |
 | :--- | :--- | :--- |
@@ -51,7 +51,7 @@ O [ThemeProvider](file:///c:/alertas/command-center-insight-command/web/useTheme
 
 ## 3. O Padrão "Pipeline" (Dashboard Dashboard View)
 
-O "Pipeline" de alertas visualizado no **Controle Diário** utiliza uma paleta específica que pode ser replicada usando o arquivo [web/features/controle-diario/styles/controle-diario-dashboard.css](file:///c:/alertas/command-center-insight-command/web/features/controle-diario/styles/controle-diario-dashboard.css).
+O "Pipeline" de alertas visualizado no **Controle Diário** utiliza uma paleta específica que pode ser replicada usando o arquivo web/features/controle-diario/styles/controle-diario-dashboard.css.
 
 ### Especificações do Pipeline:
 *   **Fundo do Painel**: `#1e2030` (Dark Navy)
@@ -88,10 +88,10 @@ Para redimensionar componentes inteiros (cards de unidade) em dashboards densos:
 
 ## 5. Como Replicar para Novos Projetos
 
-1.  **Copie o [index.css](file:///c:/alertas/command-center-insight-command/web/index.css)**: Ele contém todo o motor de Tailwind 4 e os tokens base.
-2.  **Implemente o `ThemeContext`**: Crie um provider que alterne as classes no `<html>`.
+1.  **Copie o index.css**: Ele contém todo o motor de Tailwind 4 e os tokens base.
+2.  **Implemente o ThemeContext**: Crie um provider que alterne as classes no `<html>`.
 3.  **Use Variáveis Semantic**: Nunca use cores fixas (ex: `bg-white`). Use `bg-[var(--background)]`.
-4.  **Layout "Clip"**: Adote a regra de ouro do [index.css](file:///c:/alertas/command-center-insight-command/web/index.css):
+4.  **Layout "Clip"**: Adote a regra de ouro:
     ```css
     html, body {
       max-width: 100vw;

@@ -3,7 +3,7 @@ import { io, type Socket } from 'socket.io-client';
 import { HospitalBuilding3D, type BuildingFloor3D } from './HospitalBuilding3D';
 import { HospitalFloorInterior3D } from './HospitalFloorInterior3D';
 import { PSFloorView3D } from './PSFloorView3D';
-import { BrazilUnitsMap } from './BrazilUnitsMap';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type VisaoHospitalarProps = {
   censoApiUrl: string;
@@ -103,6 +103,16 @@ function toSlug(value: string) {
     .replace(/^_|_$/g, '');
 }
 
+function normalizeSectorName(name: string) {
+  const n = name.toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  
+  if (n.includes('UNIDADE PACIENTE CRITICO')) return 'UPC';
+  if (n.includes('UNIDADE DE TERAPIA INTENSIVA')) return 'UTI';
+  return name;
+}
+
 function classifyFloor(raw: string, beds: Bed[]): FloorKind {
   const text = normalizeText(raw);
   if (text.includes('UTI') || text.includes('UPC')) return 'UTI_UPC';
@@ -200,6 +210,103 @@ function canonicalUnitKey(raw: string) {
   if (t.includes('PAMPULHA')) return 'MG_PAMPULHA';
   return t;
 }
+
+/** Matiz base por UF — todas as unidades do mesmo estado ficam na mesma família de cor (nenhum “só amarelo”). */
+const UF_HUE: Record<string, number> = {
+  ES: 188,
+  RJ: 218,
+  DF: 154,
+  MG: 278,
+  SP: 200,
+  GO: 38,
+  BA: 24,
+  PR: 152,
+};
+
+function hueDriftFromKey(key: string): number {
+  let n = 0;
+  for (let i = 0; i < key.length; i++) n += key.charCodeAt(i);
+  return (n % 22) - 11;
+}
+
+function extractUfFromLabel(label: string): string {
+  const byDash = label.match(/^\s*([A-Z]{2})\s*-/i);
+  if (byDash?.[1]) return byDash[1].toUpperCase();
+  const bySpace = label.match(/^\s*([A-Z]{2})\s+[A-Za-z]/i);
+  if (bySpace?.[1]) return bySpace[1].toUpperCase();
+  return 'BR';
+}
+
+/** Gradiente HSL coerente: UF + pequeno desvio por `canonicalUnitKey` (ex.: Gutierrez vs Pampulha). */
+function unitCardGradient(hospitalId: string): string {
+  const label = displayUnitName(hospitalId);
+  const uf = extractUfFromLabel(label);
+  const base = UF_HUE[uf] ?? 206;
+  const drift = hueDriftFromKey(canonicalUnitKey(hospitalId));
+  const h1 = (base + drift + 360) % 360;
+  const h2 = (h1 + 16 + (drift % 5)) % 360;
+  return `linear-gradient(152deg, hsl(${h1} 76% 56%) 0%, hsl(${h2} 74% 38%) 48%, hsl(${h2} 68% 22%) 100%)`;
+}
+
+/** Título mais limpo no card (sem “UF -” inicial nem sufixo “- PS”; remove prefixo “MG BH ”). */
+function formatUnitCardTitle(label: string): string {
+  let s = label.trim();
+  s = s.replace(/^[A-Z]{2}\s*-\s*/i, '');
+  s = s.replace(/\s*-\s*PS\s*$/i, '');
+  s = s.replace(/^MG\s+BH\s+/i, '');
+  s = s.replace(/\s+/g, ' ').trim();
+  return s || label.trim();
+}
+
+function UnitHospitalIllustration({ uniqueKey }: { uniqueKey: string }) {
+  const sid = uniqueKey.replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 48) || 'u';
+  const gWin = `vhUWin_${sid}`;
+  const gFa = `vhUFac_${sid}`;
+  return (
+    <svg viewBox="0 0 112 118" className="vh-unit-hospital-svg" aria-hidden focusable="false">
+      <defs>
+        <linearGradient id={gWin} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0.2)" />
+        </linearGradient>
+        <linearGradient id={gFa} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
+          <stop offset="100%" stopColor="rgba(255,255,255,0.28)" />
+        </linearGradient>
+      </defs>
+      <ellipse cx="56" cy="108" rx="40" ry="6" fill="rgba(0,0,0,0.22)" />
+      <path fill="rgba(255,255,255,0.18)" d="M56 10l46 26v8h-8v68H18V44h-8v-8z" />
+      <path fill={`url(#${gFa})`} d="M24 46h64v62H24z" />
+      <path fill="rgba(255,255,255,0.38)" d="M40 28h32v22H40z" />
+      <path fill="rgba(255,255,255,0.45)" d="M48 32h16v14H48z" />
+      <path stroke="rgba(255,255,255,0.55)" strokeWidth="2.2" d="M56 32v10M50 37h12" strokeLinecap="round" />
+      <rect x="32" y="54" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
+      <rect x="50.5" y="54" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
+      <rect x="69" y="54" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
+      <rect x="32" y="74" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
+      <rect x="50.5" y="74" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
+      <rect x="69" y="74" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
+      <path fill="rgba(255,255,255,0.25)" d="M24 46l32-18 32 18v4H24z" />
+    </svg>
+  );
+}
+
+const vhUnitListVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.055, delayChildren: 0.06 },
+  },
+} as const;
+
+const vhUnitItemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] },
+  },
+} as const;
 
 export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarProps) {
   const [mode, setMode] = useState<'units' | 'building' | 'floor'>('units');
@@ -409,7 +516,7 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
         const beds = flattenBeds(areaData);
         if (beds.length === 0) continue;
         const occupied = beds.filter(isBedOccupied).length;
-        sectors.push({ name: sectorName, occupied, total: beds.length, beds });
+        sectors.push({ name: normalizeSectorName(sectorName), occupied, total: beds.length, beds });
       }
 
       if (sectors.length === 0) continue;
@@ -478,228 +585,297 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
 
   return (
     <div className="vh-root">
-      {mode === 'units' && (
-        <BrazilUnitsMap
-          hospitals={hospitals}
-          unitsLoading={unitsLoading}
-          onSelectUnit={(unitId) => {
-            setSelectedHospital(unitId);
-            setMode('building');
-            setSelectedFloorId('');
-          }}
-        />
-      )}
-
-      {mode !== 'units' && (
-        <section className="vh-viewer">
-          <header className="vh-topbar" style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px 24px', flexWrap: 'nowrap' }}>
-            <div style={{ flexShrink: 0, minWidth: '200px' }}>
-              <h3 style={{ margin: 0, fontSize: '18px' }}>{currentHospitalLabel}</h3>
-              <small style={{ color: '#6b8a9e' }}>{mode === 'building' ? 'Clique em um andar para detalhes' : 'Navegação de andares'}</small>
-            </div>
-
-            {/* Navegação rápida entre andares (Tabs -> Cards de Detalhe) */}
-            {mode === 'floor' && (
-              <div className="vh-floor-tabs" style={{ 
-                flex: 1,
-                display: 'flex', gap: '12px', padding: '4px', 
-                overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-                alignItems: 'center',
-                scrollbarWidth: 'none', // Firefox
-                msOverflowStyle: 'none'  // IE/Edge
-              }}>
-                <style>{`.vh-floor-tabs::-webkit-scrollbar { display: none; }`}</style>
-                {floors.map(f => {
-                  const isSelected = selectedFloorId === f.id;
-                  const band = pressureBand(f.pct);
-                  const statusColor = band === 'high' ? '#ef4444' : band === 'mid' ? '#f59e0b' : '#10b981';
-                  const statusBg = band === 'high' ? 'rgba(239, 68, 68, 0.15)' : band === 'mid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
-                  const titleParts = f.label.split(' - ');
-                  const shortTitle = titleParts.length > 1 ? titleParts[0] : f.label;
-                  
-                  return (
-                    <button
-                      key={f.id}
-                      onClick={() => setSelectedFloorId(f.id)}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                        gap: '6px',
-                        minWidth: '200px',
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: '1px solid',
-                        borderColor: isSelected ? '#35d3ff' : '#1e3a4a',
-                        backgroundColor: isSelected ? 'rgba(10, 40, 60, 0.8)' : '#05121b',
-                        color: isSelected ? '#ffffff' : '#9eb3c1',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(53, 211, 255, 0.3)' : '0 2px 4px rgba(0,0,0,0.2)',
-                        textAlign: 'left',
-                        flexShrink: 0
+      <AnimatePresence mode="wait">
+        {mode === 'units' && (
+          <motion.div
+            key="units"
+            initial={{ opacity: 0, x: -18 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 18 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            style={{ width: '100%', height: '100%', overflow: 'auto' }}
+          >
+            <section className="vh-units" style={{ padding: '24px 18px 32px' }}>
+              <h2>Unidades</h2>
+              <p>Escolha uma unidade para abrir a visão do prédio</p>
+              {unitsLoading ? (
+                <p style={{ color: '#bcd4e8' }}>Carregando unidades…</p>
+              ) : (
+                <motion.div
+                  className="vh-unit-grid"
+                  style={{ margin: '20px auto 0' }}
+                  variants={vhUnitListVariants}
+                  initial="hidden"
+                  animate="show"
+                >
+                  {hospitals.map((u, index) => (
+                    <motion.button
+                      key={u.id}
+                      type="button"
+                      className="vh-unit-card"
+                      variants={vhUnitItemVariants}
+                      onClick={() => {
+                        setSelectedHospital(u.id);
+                        setMode('building');
+                        setSelectedFloorId('');
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                          {shortTitle}
-                        </span>
-                        <span style={{ 
-                          fontSize: '11px', 
-                          fontWeight: 'bold', 
-                          padding: '2px 6px', 
-                          borderRadius: '12px', 
-                          backgroundColor: statusBg, 
-                          color: statusColor,
-                          border: `1px solid ${statusColor}40`,
-                          boxShadow: `0 0 8px ${statusColor}20`
-                        }}>
-                          {f.pct}%
-                        </span>
+                      <div
+                        className="vh-unit-visual-wrap"
+                        style={{
+                          background: unitCardGradient(u.id),
+                          animationDelay: `${index * 0.18}s`,
+                        }}
+                        aria-hidden
+                      >
+                        <UnitHospitalIllustration uniqueKey={u.id} />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: isSelected ? '#aee6ff' : '#6b8a9e' }}>
-                        <span>{f.kind === 'PS' ? 'Pronto Socorro' : f.kind === 'UTI_UPC' ? 'UTI/UPC' : 'Internação'}</span>
-                        <span style={{ fontWeight: '600' }}>{f.kind === 'PS' ? `${f.occupied} ativos` : `${f.occupied}/${f.total}`}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="vh-actions" style={{ flexShrink: 0, display: 'flex', gap: '8px' }}>
-              {mode === 'floor' && (
-                <button onClick={() => setMode('building')} className="vh-btn-secondary">
-                  Voltar ao predio
-                </button>
+                      <span className="vh-unit-card-title">{formatUnitCardTitle(u.label)}</span>
+                    </motion.button>
+                  ))}
+                </motion.div>
               )}
-              <button
-                onClick={() => {
-                  setMode('units');
-                  setSelectedHospital('');
-                  setSelectedFloorId('');
-                  setCensoData(null);
-                }}
-                className="vh-btn-primary"
-              >
-                SAIR
-              </button>
-            </div>
-          </header>
+            </section>
+          </motion.div>
+        )}
 
-          {mode === 'building' && (
-            <div className="vh-building-real-wrap">
-              <div className="vh-building-layout">
-                <HospitalBuilding3D
-                  floors={buildingFloors3d}
-                  unitName={currentHospitalLabel}
-                  selectedFloorId={selectedFloorId}
-                  onSelectFloor={(id) => {
-                    setSelectedFloorId(id);
-                    setMode('floor');
-                  }}
-                />
-                <aside className="vh-outside-legend">
-                  <h4>Andares</h4>
-                  <div className="vh-outside-legend-list">
-                    {buildingFloors3d.map((floor) => (
-                      <button
-                        key={floor.id}
-                        className={`vh-legend-item is-${floor.band} ${selectedFloorId === floor.id ? 'is-selected' : ''}`}
-                        onClick={() => {
-                          setSelectedFloorId(floor.id);
+        {mode !== 'units' && (
+          <motion.div
+            key="viewer"
+            initial={{ opacity: 0, x: 22 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -22 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            style={{ width: '100%', height: '100%' }}
+          >
+            <section className="vh-viewer">
+              <header className="vh-topbar" style={{ display: 'flex', alignItems: 'center', gap: '24px', padding: '16px 24px', flexWrap: 'nowrap' }}>
+                <div style={{ flexShrink: 0, minWidth: '200px' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px' }}>{currentHospitalLabel}</h3>
+                  <small style={{ color: '#6b8a9e' }}>{mode === 'building' ? 'Clique em um andar para detalhes' : 'Navegação de andares'}</small>
+                </div>
+
+                {mode === 'floor' && (
+                  <div className="vh-floor-tabs" style={{ 
+                    flex: 1,
+                    display: 'flex', gap: '12px', padding: '4px', 
+                    overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+                    alignItems: 'center',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none'
+                  }}>
+                    <style>{`.vh-floor-tabs::-webkit-scrollbar { display: none; }`}</style>
+                    {floors.map(f => {
+                      const isSelected = selectedFloorId === f.id;
+                      const band = pressureBand(f.pct);
+                      const statusColor = band === 'high' ? '#ef4444' : band === 'mid' ? '#f59e0b' : '#10b981';
+                      const statusBg = band === 'high' ? 'rgba(239, 68, 68, 0.15)' : band === 'mid' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+                      const titleParts = f.label.split(' - ');
+                      const shortTitle = titleParts.length > 1 ? titleParts[0] : f.label;
+                      
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => setSelectedFloorId(f.id)}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-start',
+                            gap: '6px',
+                            minWidth: '200px',
+                            padding: '10px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid',
+                            borderColor: isSelected ? '#35d3ff' : '#1e3a4a',
+                            backgroundColor: isSelected ? 'rgba(10, 40, 60, 0.8)' : '#05121b',
+                            color: isSelected ? '#ffffff' : '#9eb3c1',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(53, 211, 255, 0.3)' : '0 2px 4px rgba(0,0,0,0.2)',
+                            textAlign: 'left',
+                            flexShrink: 0
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                              {shortTitle}
+                            </span>
+                            <span style={{ 
+                              fontSize: '11px', 
+                              fontWeight: 'bold', 
+                              padding: '2px 6px', 
+                              borderRadius: '12px', 
+                              backgroundColor: statusBg, 
+                              color: statusColor,
+                              border: `1px solid ${statusColor}40`,
+                              boxShadow: `0 0 8px ${statusColor}20`
+                            }}>
+                              {f.pct}%
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: isSelected ? '#aee6ff' : '#6b8a9e' }}>
+                            <span>{f.kind === 'PS' ? 'Pronto Socorro' : f.kind === 'UTI_UPC' ? 'UTI/UPC' : 'Internação'}</span>
+                            <span style={{ fontWeight: '600' }}>{f.kind === 'PS' ? `${f.occupied} ativos` : `${f.occupied}/${f.total}`}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="vh-actions" style={{ flexShrink: 0, display: 'flex', gap: '8px' }}>
+                  {mode === 'floor' && (
+                    <button onClick={() => setMode('building')} className="vh-btn-secondary">
+                      Voltar ao predio
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setMode('units');
+                      setSelectedHospital('');
+                      setSelectedFloorId('');
+                      setCensoData(null);
+                    }}
+                    className="vh-btn-primary"
+                  >
+                    SAIR
+                  </button>
+                </div>
+              </header>
+
+              <AnimatePresence mode="wait">
+                {mode === 'building' && (
+                  <motion.div
+                    key="building-view"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="vh-building-real-wrap"
+                  >
+                    <div className="vh-building-layout">
+                      <HospitalBuilding3D
+                        floors={buildingFloors3d}
+                        unitName={currentHospitalLabel}
+                        selectedFloorId={selectedFloorId}
+                        onSelectFloor={(id) => {
+                          setSelectedFloorId(id);
                           setMode('floor');
                         }}
-                      >
-                        <span>{floor.label}</span>
-                        <strong>{floor.pct}%</strong>
-                      </button>
-                    ))}
-                  </div>
-                </aside>
-              </div>
-            </div>
-          )}
+                      />
+                      <aside className="vh-outside-legend">
+                        <h4>Andares</h4>
+                        <div className="vh-outside-legend-list">
+                          {buildingFloors3d.map((floor) => (
+                            <button
+                              key={floor.id}
+                              type="button"
+                              className={`vh-legend-item is-${floor.band} ${selectedFloorId === floor.id ? 'is-selected' : ''}`}
+                              onClick={() => {
+                                setSelectedFloorId(floor.id);
+                                setMode('floor');
+                              }}
+                            >
+                              <span>{floor.label}</span>
+                              <strong>{floor.pct}%</strong>
+                            </button>
+                          ))}
+                        </div>
+                      </aside>
+                    </div>
+                  </motion.div>
+                )}
 
-          {mode === 'floor' && selectedFloor && selectedFloor.kind === 'PS' && (
-            <div className="vh-ps-detail" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '560px', position: 'relative' }}>
-              <div className="vh-floor-summary">
-                <strong>{selectedFloor.label}</strong>
-                <span>{psTotalActive} pessoas ativas no PS</span>
-              </div>
-              <PSFloorView3D
-                floorName={selectedFloor.label}
-                sectors={psStats.map((stage) => ({
-                  name: stage.label,
-                  occupied: stage.count,
-                  total: Math.max(stage.count, 1),
-                }))}
-              />
-            </div>
-          )}
+                {mode === 'floor' && (
+                  <motion.div
+                    key={`floor-view-${selectedFloorId}`}
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.02 }}
+                    transition={{ duration: 0.3 }}
+                    style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+                  >
+                    {selectedFloor && selectedFloor.kind === 'PS' ? (
+                      <div className="vh-ps-detail" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '560px', position: 'relative' }}>
+                        <div className="vh-floor-summary">
+                          <strong>{selectedFloor.label}</strong>
+                          <span>{psTotalActive} pessoas ativas no PS</span>
+                        </div>
+                        <PSFloorView3D
+                          floorName={selectedFloor.label}
+                          sectors={psStats.map((stage) => ({
+                            name: stage.label,
+                            occupied: stage.count,
+                            total: Math.max(stage.count, 1),
+                          }))}
+                        />
+                      </div>
+                    ) : selectedFloor ? (
+                      <div className="vh-bed-detail">
+                        <div className="vh-floor-summary">
+                          <strong>{selectedFloor.label}</strong>
+                          <span>
+                            {selectedFloor.occupied}/{selectedFloor.total} ocupados ({selectedFloor.pct}%)
+                          </span>
+                        </div>
 
-          {mode === 'floor' && selectedFloor && selectedFloor.kind !== 'PS' && (
-            <div className="vh-bed-detail">
-              <div className="vh-floor-summary">
-                <strong>{selectedFloor.label}</strong>
-                <span>
-                  {selectedFloor.occupied}/{selectedFloor.total} ocupados ({selectedFloor.pct}%)
-                </span>
-              </div>
+                        <div className="vh-floor-sketch-wrap">
+                          <div className="vh-kpi-cloud">
+                            <article className="vh-kpi-pill">
+                              <span>Ocupacao</span>
+                              <strong>{selectedFloor.pct}%</strong>
+                            </article>
+                            <article className="vh-kpi-pill">
+                              <span>Leitos livres</span>
+                              <strong>{Math.max(0, selectedFloor.total - selectedFloor.occupied)}</strong>
+                            </article>
+                            <article className="vh-kpi-pill">
+                              <span>Pressao</span>
+                              <strong>{floorPressureLabel(selectedFloor.pct)}</strong>
+                            </article>
+                          </div>
 
-              <div className="vh-floor-sketch-wrap">
-                <div className="vh-kpi-cloud">
-                  <article className="vh-kpi-pill">
-                    <span>Ocupacao</span>
-                    <strong>{selectedFloor.pct}%</strong>
-                  </article>
-                  <article className="vh-kpi-pill">
-                    <span>Leitos livres</span>
-                    <strong>{Math.max(0, selectedFloor.total - selectedFloor.occupied)}</strong>
-                  </article>
-                  <article className="vh-kpi-pill">
-                    <span>Pressao</span>
-                    <strong>{floorPressureLabel(selectedFloor.pct)}</strong>
-                  </article>
-                </div>
-
-                <div className="vh-floor-sketch" style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
-                  {/* Detecta se é PS pela ausência de leitos ou pelo nome do andar */}
-                  {(selectedFloor.beds.length === 0 && (!selectedFloor.sectors || selectedFloor.sectors.length === 0)) || 
-                   String(selectedFloor.label ?? '').toLowerCase().includes('ps') || 
-                   String(selectedFloor.label ?? '').toLowerCase().includes('pronto') ? (
-                    <PSFloorView3D
-                      key={selectedFloor.id}
-                      floorName={selectedFloor.label}
-                      sectors={
-                        selectedFloor.sectors && selectedFloor.sectors.length > 0
-                          ? selectedFloor.sectors.map(s => ({ name: s.name, occupied: s.occupied, total: s.total }))
-                          : []
-                      }
-                    />
-                  ) : (
-                    <HospitalFloorInterior3D
-                      key={selectedFloor.id}
-                      sectors={
-                        selectedFloor.sectors && selectedFloor.sectors.length > 0
-                          ? selectedFloor.sectors
-                          : [
-                              {
-                                name: 'Geral',
-                                occupied: selectedFloor.occupied,
-                                total: selectedFloor.total,
-                                beds: selectedFloor.beds,
-                              },
-                            ]
-                      }
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
+                          <div className="vh-floor-sketch" style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+                            {(selectedFloor.beds.length === 0 && (!selectedFloor.sectors || selectedFloor.sectors.length === 0)) || 
+                             String(selectedFloor.label ?? '').toLowerCase().includes('ps') || 
+                             String(selectedFloor.label ?? '').toLowerCase().includes('pronto') ? (
+                              <PSFloorView3D
+                                key={selectedFloor.id}
+                                floorName={selectedFloor.label}
+                                sectors={
+                                  selectedFloor.sectors && selectedFloor.sectors.length > 0
+                                    ? selectedFloor.sectors.map(s => ({ name: s.name, occupied: s.occupied, total: s.total }))
+                                    : []
+                                }
+                              />
+                            ) : (
+                              <HospitalFloorInterior3D
+                                key={selectedFloor.id}
+                                sectors={
+                                  selectedFloor.sectors && selectedFloor.sectors.length > 0
+                                    ? selectedFloor.sectors
+                                    : [
+                                        {
+                                          name: 'Geral',
+                                          occupied: selectedFloor.occupied,
+                                          total: selectedFloor.total,
+                                          beds: selectedFloor.beds,
+                                        },
+                                      ]
+                                }
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

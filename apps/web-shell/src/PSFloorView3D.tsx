@@ -102,8 +102,15 @@ function SpriteLabel({
 }) {
   const material = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 512; canvas.height = 128;
     const ctx = canvas.getContext('2d')!;
+    ctx.font = '700 44px Manrope, Segoe UI, sans-serif';
+    const metrics = ctx.measureText(text);
+    canvas.width = Math.max(512, metrics.width + 80);
+    canvas.height = 128;
+    
+    // Reset font after resizing canvas
+    ctx.font = '700 44px Manrope, Segoe UI, sans-serif';
+
     if (bg !== 'transparent') {
       ctx.fillStyle = bg;
       ctx.beginPath();
@@ -113,7 +120,6 @@ function SpriteLabel({
       ctx.strokeStyle = '#35d3ff';
       ctx.stroke();
     }
-    ctx.font = '700 44px Manrope, Segoe UI, sans-serif';
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -123,7 +129,8 @@ function SpriteLabel({
     return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
   }, [text, color, bg]);
 
-  return <sprite position={position} scale={[3.2 * scale, 0.8 * scale, 1]} material={material} />;
+  const scaleX = Math.max(3.2, (text.length * 0.25) * scale);
+  return <sprite position={position} scale={[scaleX, 0.8 * scale, 1]} material={material} />;
 }
 
 // Label grande com glow para nome do setor
@@ -132,8 +139,18 @@ function SectorNameLabel({
 }: { text: string; position: [number, number, number]; scale?: number }) {
   const material = useMemo(() => {
     const canvas = document.createElement('canvas');
-    canvas.width = 640; canvas.height = 160;
     const ctx = canvas.getContext('2d')!;
+    ctx.font = 'bold 72px Manrope, Segoe UI, sans-serif';
+    
+    // Calcula largura baseada no texto
+    const metrics = ctx.measureText(text);
+    const textWidth = metrics.width;
+    canvas.width = Math.max(640, textWidth + 120); 
+    canvas.height = 160;
+
+    // Recalcula o contexto apos mudar o tamanho do canvas
+    ctx.font = 'bold 72px Manrope, Segoe UI, sans-serif';
+    
     // Fundo com gradiente
     const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
     grad.addColorStop(0, '#0d3a52');
@@ -150,16 +167,20 @@ function SectorNameLabel({
     ctx.stroke();
     // Texto
     ctx.shadowBlur = 0;
-    ctx.font = 'bold 72px Manrope, Segoe UI, sans-serif';
     ctx.fillStyle = '#f0faff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    
     const texture = new THREE.CanvasTexture(canvas);
     texture.minFilter = THREE.LinearFilter;
     return new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
   }, [text]);
-  return <sprite position={position} scale={[5.2 * scale, 1.3 * scale, 1]} material={material} />;
+  
+  // Ajusta o scale do sprite baseado na largura do texto aproximada
+  const scaleX = Math.max(5.2, (text.length * 0.4) * scale);
+
+  return <sprite position={position} scale={[scaleX, 1.3 * scale, 1]} material={material} />;
 }
 
 // Label percentual com cor de status e brilho forte
