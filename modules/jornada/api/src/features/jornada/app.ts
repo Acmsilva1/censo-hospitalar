@@ -35,6 +35,11 @@ let viasData = new Map<string, string[]>();
 let imagingData = new Map<string, any[]>(); // RX, ECG, TC, US
 let revalData = new Map<string, any[]>();
 let metas: any[] = [];
+/** Linhas farmácia (pendentes + liberadas) — coluna PADRAO para medicação fora do padrão. */
+type FarmMedLinha = { nrAtendimento: string; dtRef?: string; medicamento: string; padrao: string };
+/** Índice por chaves de NR (mesma lógica que labs/med) — lookup O(linhas do atendimento), não O(tabela inteira). */
+let farmMedByKey = new Map<string, FarmMedLinha[]>();
+let farmMedRowCount = 0;
 
 /** Metadados da carga em segundo plano (jornada completa depende disto). */
 let auxiliaryReady = false;
@@ -99,6 +104,47 @@ const loadAuxiliaryTables = async () => {
     const metasRows = await loadParquet('meta_tempos.parquet');
     await loadViasAggregated();
 
+    farmMedByKey = new Map();
+    farmMedRowCount = 0;
+    const indexFarmRow = (f: FarmMedLinha) => {
+      farmMedRowCount += 1;
+      for (const k of candidateKeysForAtendimento(f.nrAtendimento)) {
+        if (!k) continue;
+        const list = farmMedByKey.get(k) || [];
+        list.push(f);
+        farmMedByKey.set(k, list);
+      }
+    };
+    const pushFarm = (rows: any[], dtFieldPendente: 'DT_ADMIN' | 'DT_LIBERACAO') => {
+      for (const row of rows) {
+        const r = row as Record<string, unknown>;
+        const dtRef =
+          dtFieldPendente === 'DT_ADMIN'
+            ? (r.DT_ADMIN ?? r.DT_LIBERACAO)
+            : (r.DT_LIBERACAO ?? r.DT_ADMIN);
+        const p = String(r.PADRAO ?? '')
+          .trim()
+          .toUpperCase();
+        const f: FarmMedLinha = {
+          nrAtendimento: String(r.NR_ATENDIMENTO ?? ''),
+          dtRef: dtRef != null && String(dtRef).trim() !== '' ? String(dtRef) : undefined,
+          medicamento: String(r.MEDICAMENTO ?? '').trim(),
+          padrao: p === 'S' || p === 'N' ? p : '',
+        };
+        indexFarmRow(f);
+      }
+    };
+    try {
+      pushFarm(await loadParquet('tbl_farm_relatorio_pendentes_base.parquet'), 'DT_ADMIN');
+    } catch {
+      fastify.log.warn('tbl_farm_relatorio_pendentes_base.parquet indisponivel ou vazio.');
+    }
+    try {
+      pushFarm(await loadParquet('tbl_farm_relatorio_liberadas_base.parquet'), 'DT_LIBERACAO');
+    } catch {
+      fastify.log.warn('tbl_farm_relatorio_liberadas_base.parquet indisponivel ou vazio.');
+    }
+
     labs.forEach((l) => {
       const list = labData.get(String(l.NR_ATENDIMENTO)) || [];
       list.push(l);
@@ -126,7 +172,13 @@ const loadAuxiliaryTables = async () => {
     metas = metasRows;
     auxiliaryReady = true;
     fastify.log.info(
-      { ms: Date.now() - t0, metas: metas.length, viasKeys: viasData.size },
+      {
+        ms: Date.now() - t0,
+        metas: metas.length,
+        viasKeys: viasData.size,
+        farmMedLinhas: farmMedRowCount,
+        farmMedChaves: farmMedByKey.size,
+      },
       'Carga auxiliar concluída.'
     );
   } catch (e) {
@@ -154,6 +206,228 @@ export const start = async () => {
     process.exit(1);
   }
 };
+
+/** Normaliza token de atendimento (trim, bigint/string, "975605.0" → "975605"). */
+function normalizeAtendimentoToken(v: unknown): string {
+  if (v == null || v === '') return '';
+  let s = String(v).trim();
+  if (/^\d+\.\d+$/.test(s)) {
+    const n = Number(s);
+    if (Number.isFinite(n) && Number.isSafeInteger(Math.trunc(n))) s = String(Math.trunc(n));
+  }
+  return s;
+}
+
+/** Compara IDs de atendimento vindos de Parquet/ERP (string vs número vs sufixo .0). */
+function idsEquivalent(stored: unknown, requested: string): boolean {
+  const a = normalizeAtendimentoToken(stored);
+  const b = normalizeAtendimentoToken(requested);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const na = Number(a);
+  const nb = Number(b);
+  return !Number.isNaN(na) && !Number.isNaN(nb) && na === nb;
+}
+
+/**
+ * Localiza a linha do PS para montar a jornada:
+ * 1) NR_ATENDIMENTO (episódio único ou número que o Censo também mostra)
+ * 2) NR_ATENDIMENTO_INT — quando o leito/internação usa o vínculo de internação e o PS mantém outro NR na mesma linha
+ */
+function findAttendanceForJourney(searchId: string): any | undefined {
+  const sid = searchId.trim();
+  const byPs = globalAttendances.find((a) => idsEquivalent(a.NR_ATENDIMENTO, sid));
+  if (byPs) return byPs;
+
+  const intMatches = globalAttendances.filter((a) => idsEquivalent(a.NR_ATENDIMENTO_INT, sid));
+  if (intMatches.length === 0) return undefined;
+  if (intMatches.length === 1) return intMatches[0];
+  return intMatches.sort(
+    (x, y) => new Date(y.DT_ENTRADA || 0).getTime() - new Date(x.DT_ENTRADA || 0).getTime()
+  )[0];
+}
+
+function candidateKeysForAtendimento(psNrAtendimento: unknown): string[] {
+  const raw = String(psNrAtendimento ?? '').trim();
+  const norm = normalizeAtendimentoToken(psNrAtendimento);
+  const out = new Set<string>();
+  if (raw) out.add(raw);
+  if (norm) out.add(norm);
+  const n = Number(norm || raw);
+  if (!Number.isNaN(n)) out.add(String(n));
+  return [...out];
+}
+
+function getAuxiliaryRows<T>(map: Map<string, T[]>, psNrAtendimento: unknown): T[] {
+  for (const k of candidateKeysForAtendimento(psNrAtendimento)) {
+    const hit = map.get(k);
+    if (hit && hit.length > 0) return hit;
+  }
+  const n = Number(normalizeAtendimentoToken(psNrAtendimento));
+  if (!Number.isNaN(n)) {
+    for (const mk of map.keys()) {
+      if (Number(mk) === n) {
+        const hit = map.get(mk);
+        if (hit && hit.length > 0) return hit;
+      }
+    }
+  }
+  return [];
+}
+
+function getViasForAtendimento(psNrAtendimento: unknown): string[] {
+  for (const k of candidateKeysForAtendimento(psNrAtendimento)) {
+    const v = viasData.get(k);
+    if (v && v.length > 0) return v;
+  }
+  const n = Number(normalizeAtendimentoToken(psNrAtendimento));
+  if (!Number.isNaN(n)) {
+    for (const mk of viasData.keys()) {
+      if (Number(mk) === n) {
+        const v = viasData.get(mk);
+        if (v && v.length > 0) return v;
+      }
+    }
+  }
+  return [];
+}
+
+/**
+ * Labs/med/imagem/reaval — Parquets às vezes usam o NR do PS, às vezes o mesmo número
+ * pedido na URL (internação) ou NR_ATENDIMENTO_INT; tentamos nessa ordem.
+ */
+function getAuxiliaryRowsForJourney(map: Map<string, any[]>, match: any, requestedSearchId: string): any[] {
+  const psKey = normalizeAtendimentoToken(match.NR_ATENDIMENTO) || String(match.NR_ATENDIMENTO ?? '').trim();
+  let rows = getAuxiliaryRows(map, psKey);
+  if (rows.length > 0) return rows;
+  rows = getAuxiliaryRows(map, requestedSearchId);
+  if (rows.length > 0) return rows;
+  const intK = normalizeAtendimentoToken(match.NR_ATENDIMENTO_INT);
+  if (intK) rows = getAuxiliaryRows(map, intK);
+  return rows;
+}
+
+function getViasForJourney(match: any, requestedSearchId: string): string[] {
+  const psKey = normalizeAtendimentoToken(match.NR_ATENDIMENTO) || String(match.NR_ATENDIMENTO ?? '').trim();
+  let v = getViasForAtendimento(psKey);
+  if (v.length > 0) return v;
+  v = getViasForAtendimento(requestedSearchId);
+  if (v.length > 0) return v;
+  const intK = normalizeAtendimentoToken(match.NR_ATENDIMENTO_INT);
+  return intK ? getViasForAtendimento(intK) : [];
+}
+
+/** Descrição legível — exports Tasy variam colunas (DS_*, NM_*). */
+function pickLabel(row: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = row[k];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s !== '') return s;
+  }
+  return '';
+}
+
+function toEpochMs(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  const t = new Date(String(v)).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+function normMedNome(s: string): string {
+  return s
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Junta linhas da farm indexadas por qualquer chave de NR candidata (evita duplicar o mesmo objeto). */
+function farmRowsForNrs(nrSet: Set<string>): FarmMedLinha[] {
+  const dedupe = new Map<string, FarmMedLinha>();
+  for (const c of nrSet) {
+    for (const k of candidateKeysForAtendimento(c)) {
+      const list = farmMedByKey.get(k);
+      if (!list) continue;
+      for (const f of list) {
+        const id = `${f.nrAtendimento}\0${f.dtRef ?? ''}\0${f.medicamento}\0${f.padrao}`;
+        dedupe.set(id, f);
+      }
+    }
+  }
+  return [...dedupe.values()];
+}
+
+/**
+ * Cruza farm (PADRAO) com linha de tbl_tempos_medicacao: NR + janela temporal + nome.
+ * Com muitos dados na farm, só percorre linhas do atendimento (mapa por NR).
+ * Se houver match forte por nome e alguma linha for N, devolve N (destaque no cliente).
+ */
+function resolveFarmPadrao(match: any, searchId: string, medRow: any, medNomeResolvido: string): string | undefined {
+  if (farmMedByKey.size === 0) return undefined;
+  const dtMed = toEpochMs(medRow?.DT_ADMINISTRACAO ?? medRow?.DT_PRESCRICAO);
+  if (dtMed == null) return undefined;
+
+  const nrSet = new Set<string>();
+  for (const k of candidateKeysForAtendimento(match?.NR_ATENDIMENTO)) {
+    const n = normalizeAtendimentoToken(k);
+    if (n) nrSet.add(n);
+  }
+  for (const k of candidateKeysForAtendimento(match?.NR_ATENDIMENTO_INT)) {
+    const n = normalizeAtendimentoToken(k);
+    if (n) nrSet.add(n);
+  }
+  const sid = normalizeAtendimentoToken(searchId);
+  if (sid) nrSet.add(sid);
+
+  const pool = farmRowsForNrs(nrSet);
+  if (pool.length === 0) return undefined;
+
+  const nomeLinha = normMedNome(medNomeResolvido);
+  const WINDOW_MS = 25 * 60 * 1000;
+
+  type Cand = { f: FarmMedLinha; diff: number; nameMatch: boolean };
+  const cands: Cand[] = [];
+  for (const f of pool) {
+    if (!f.padrao) continue;
+    const nrF = normalizeAtendimentoToken(f.nrAtendimento);
+    const hitNr = [...nrSet].some((c) => c && idsEquivalent(nrF, c));
+    if (!hitNr) continue;
+
+    const dtF = toEpochMs(f.dtRef);
+    if (dtF == null) continue;
+    const diff = Math.abs(dtF - dtMed);
+    if (diff > WINDOW_MS) continue;
+
+    const fn = normMedNome(f.medicamento);
+    const nameMatch =
+      nomeLinha.length >= 3 &&
+      fn.length >= 3 &&
+      (fn.includes(nomeLinha) || nomeLinha.includes(fn) || fn === nomeLinha);
+    cands.push({ f, diff, nameMatch });
+  }
+  if (cands.length === 0) return undefined;
+
+  const strict = cands.filter((c) => c.nameMatch);
+  if (strict.length > 0) {
+    if (strict.some((c) => c.f.padrao === 'N')) return 'N';
+    strict.sort((a, b) => a.diff - b.diff);
+    const p = strict[0].f.padrao;
+    return p === 'S' || p === 'N' ? p : undefined;
+  }
+
+  cands.sort((a, b) => {
+    const sa = a.nameMatch ? a.diff : a.diff + 36 * 60 * 60 * 1000;
+    const sb = b.nameMatch ? b.diff : b.diff + 36 * 60 * 60 * 1000;
+    return sa - sb;
+  });
+  const best = cands[0];
+  const near = cands.filter((c) => c.diff <= best.diff + 3 * 60 * 1000);
+  if (near.some((c) => c.f.padrao === 'N')) return 'N';
+  const p = best.f.padrao;
+  return p === 'S' || p === 'N' ? p : undefined;
+}
 
 // --- ENDPOINTS ---
 
@@ -249,9 +523,10 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
   if (!idStr) return reply.status(400).send({ error: 'ID vazio' });
   
   const searchId = decodeURIComponent(idStr).trim();
-  const id = searchId; // Restaura a variável id para que as buscas mapeadas funcionem
-  const match = globalAttendances.find(a => String(a.NR_ATENDIMENTO).trim() === searchId);
-  if (!match) return reply.status(404).send({ error: `Atendimento [${searchId}] não encontrado` });
+  const match = findAttendanceForJourney(searchId);
+  if (!match) {
+    return reply.status(404).send({ error: `Atendimento [${searchId}] não encontrado` });
+  }
 
   const steps: any[] = [];
   const toMin = (val: any) => (val && !isNaN(Number(val)) ? Number(val) : null);
@@ -292,7 +567,7 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
   }
 
   // 2. Ramificações (ZONA DE AÇÃO)
-  const labs = labData.get(id) || [];
+  const labs = getAuxiliaryRowsForJourney(labData, match, searchId);
   if (labs.length > 0) {
     const sorted = labs.sort((a, b) => new Date(a.DT_SOLICITACAO).getTime() - new Date(b.DT_SOLICITACAO).getTime());
     const sortedExames = labs.map(l => l).sort((a, b) => new Date(a.DT_EXAME).getTime() - new Date(b.DT_EXAME).getTime());
@@ -304,11 +579,25 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
       endTime: sortedExames[sortedExames.length - 1].DT_EXAME,
       minutes: diffInMin(sorted[0].DT_SOLICITACAO, sortedExames[sortedExames.length - 1].DT_EXAME),
       count: labs.length, 
-      detail: labs.map(l => ({ name: l.DS_PROC_EXAME, time: l.DT_SOLICITACAO, status: 'Coletado' }))
+      detail: labs.map((l) => {
+        const r = l as Record<string, unknown>;
+        const name =
+          pickLabel(r, [
+            'DS_PROC_EXAME',
+            'DS_EXAME',
+            'NM_EXAME',
+            'DS_PROCEDIMENTO',
+            'PROCEDIMENTO',
+            'DS_PROC_EXAME_COMP',
+            'EXAME',
+          ]) || 'Exame (sem descrição no extract)';
+        const timeRaw = (l as { DT_SOLICITACAO?: string; DT_EXAME?: string }).DT_SOLICITACAO || (l as { DT_EXAME?: string }).DT_EXAME;
+        return { name, time: timeRaw, status: 'Coletado' };
+      }),
     });
   }
 
-  const images = imagingData.get(id) || [];
+  const images = getAuxiliaryRowsForJourney(imagingData, match, searchId);
   if (images.length > 0) {
     const sorted = images.sort((a, b) => new Date(a.DT_SOLICITACAO).getTime() - new Date(b.DT_SOLICITACAO).getTime());
     const sortedExames = images.map(i => i).sort((a, b) => new Date(a.DT_EXAME).getTime() - new Date(b.DT_EXAME).getTime());
@@ -320,15 +609,29 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
       endTime: sortedExames[sortedExames.length - 1].DT_EXAME,
       minutes: diffInMin(sorted[0].DT_SOLICITACAO, sortedExames[sortedExames.length - 1].DT_EXAME),
       count: images.length, 
-      detail: images.map(i => ({ name: i.EXAME, time: i.DT_SOLICITACAO, status: i.STATUS || 'Realizado' }))
+      detail: images.map((i) => {
+        const r = i as Record<string, unknown>;
+        const name =
+          pickLabel(r, [
+            'EXAME',
+            'DS_EXAME',
+            'NM_EXAME',
+            'DS_PROC_EXAME',
+            'DS_PROCEDIMENTO',
+            'DS',
+          ]) || 'Exame de imagem (sem descrição no extract)';
+        const ti = i as { DT_SOLICITACAO?: string; DT_EXAME?: string; STATUS?: string };
+        const timeRaw = ti.DT_SOLICITACAO || ti.DT_EXAME;
+        return { name, time: timeRaw, status: ti.STATUS || 'Realizado' };
+      }),
     });
   }
 
-  const meds = medData.get(id) || [];
+  const meds = getAuxiliaryRowsForJourney(medData, match, searchId);
   if (meds.length > 0) {
     const sorted = meds.sort((a, b) => new Date(a.DT_PRESCRICAO).getTime() - new Date(b.DT_PRESCRICAO).getTime());
     const sortedAdmin = meds.map(m => m).sort((a, b) => new Date(a.DT_ADMINISTRACAO).getTime() - new Date(b.DT_ADMINISTRACAO).getTime());
-    const materials = viasData.get(id) || [];
+    const materials = getViasForJourney(match, searchId);
     
     steps.push({ 
       type: 'ACTION', 
@@ -339,14 +642,34 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
       minutes: diffInMin(sorted[0].DT_PRESCRICAO, sortedAdmin[sortedAdmin.length - 1].DT_ADMINISTRACAO),
       count: meds.length, 
       detail: sorted.map((m, idx) => {
-        const name = materials[idx] || materials[0] || 'Medicamento Administrado';
-        return { name, time: m.DT_ADMINISTRACAO, status: 'Checado' };
-      })
+        const r = m as Record<string, unknown>;
+        let name = pickLabel(r, [
+          'DS_MEDICAMENTO',
+          'DS_PRODUTO',
+          'DS_ITEM',
+          'NM_MEDICAMENTO',
+          'DS_MATERIAL',
+          'MEDICAMENTO',
+          'PRODUTO',
+          'DS',
+          'ITEM',
+        ]);
+        if (!name) name = materials[idx] || '';
+        if (!name) name = pickLabel(r, ['OBSERVACAO', 'DS_OBSERVACAO', 'COMPLEMENTO']) || '';
+        if (!name) name = materials[0] || '';
+        if (!name) name = 'Medicação (sem descrição no extract)';
+        const mt = m as { DT_ADMINISTRACAO?: string; DT_PRESCRICAO?: string };
+        const timeRaw = mt.DT_ADMINISTRACAO || mt.DT_PRESCRICAO;
+        const padraoFarm = resolveFarmPadrao(match, searchId, m, name);
+        const row: Record<string, unknown> = { name, time: timeRaw, status: 'Checado' };
+        if (padraoFarm === 'S' || padraoFarm === 'N') row.padrao = padraoFarm;
+        return row;
+      }),
     });
   }
 
   // 3. Fechamento (ZONA DE FINALIZAÇÃO)
-  const revals = revalData.get(id) || [];
+  const revals = getAuxiliaryRowsForJourney(revalData, match, searchId);
   if (revals.length > 0) {
     const sorted = revals.sort((a, b) => new Date(a.DT_SOLIC_REAVALIACAO).getTime() - new Date(b.DT_SOLIC_REAVALIACAO).getTime());
     steps.push({ 

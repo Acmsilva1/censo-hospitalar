@@ -28,4 +28,6 @@ export const config = {
   DATABASE_URL:    process.env.DATABASE_URL || '',
   DUCKDB_PATH:     path.resolve(process.env.DUCKDB_PATH || path.join(process.cwd(), '.local', 'censo.duckdb')),
   REDIS_URL:       process.env.REDIS_URL,
+  /** API Jornada (PS) — proxy do histórico no card de internação. */
+  JORNADA_API_URL: process.env.JORNADA_API_URL || 'http://localhost:3211',
 };

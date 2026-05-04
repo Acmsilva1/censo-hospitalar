@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Calendar, Clock, Activity, ExternalLink, 
   User, TrendingUp, ShieldAlert, MapPin, 
-  ArrowRightCircle, History, Copy, Check
+  ArrowRightCircle, History, Copy, Check, Stethoscope, CheckCircle2,
+  Loader2, AlertTriangle, WifiOff
 } from 'lucide-react';
 import type { Bed } from '../types/census';
+import ModalHistoricoPs, { type JourneyPayload, type PsJourneyWarmStart } from './ModalHistoricoPs';
 
 interface ModalProntuarioProps {
   isOpen: boolean;
@@ -13,10 +15,74 @@ interface ModalProntuarioProps {
   bed: Bed | null;
 }
 
+type PsProbe = 'idle' | 'loading' | 'ok' | 'missing' | 'error';
+
 const ModalProntuario: React.FC<ModalProntuarioProps> = ({ isOpen, onClose, bed }) => {
   const [copied, setCopied] = useState(false);
+  const [psHistoricoOpen, setPsHistoricoOpen] = useState(false);
+  const [psProbe, setPsProbe] = useState<PsProbe>('idle');
+  const [psJourneyPayload, setPsJourneyPayload] = useState<JourneyPayload | null>(null);
+
+  const patientId =
+    bed?.patientId != null && String(bed.patientId).trim() !== ''
+      ? String(bed.patientId).trim()
+      : null;
+
+  useEffect(() => {
+    if (!isOpen) setPsHistoricoOpen(false);
+  }, [isOpen]);
+
+  /** Ao abrir o prontuário, consulta o PS uma vez — badge e modal ficam alinhados ao que existe na API. */
+  useEffect(() => {
+    if (!isOpen || !patientId) {
+      if (!isOpen) {
+        setPsProbe('idle');
+        setPsJourneyPayload(null);
+      }
+      return;
+    }
+
+    const ac = new AbortController();
+    setPsProbe('loading');
+    setPsJourneyPayload(null);
+
+    fetch(`/api/integration/ps-journey/${encodeURIComponent(patientId)}`, { signal: ac.signal })
+      .then(async (res) => {
+        if (res.status === 404) {
+          setPsProbe('missing');
+          return;
+        }
+        if (!res.ok) {
+          setPsProbe('error');
+          return;
+        }
+        const data = (await res.json()) as JourneyPayload;
+        setPsJourneyPayload(data);
+        setPsProbe('ok');
+      })
+      .catch((e: unknown) => {
+        const aborted =
+          (typeof e === 'object' && e !== null && (e as { name?: string }).name === 'AbortError') ||
+          (e instanceof DOMException && e.name === 'AbortError');
+        if (aborted) return;
+        setPsProbe('error');
+      });
+
+    return () => ac.abort();
+  }, [isOpen, patientId]);
+
+  const historicoWarmStart = useMemo((): PsJourneyWarmStart | undefined => {
+    if (psProbe === 'ok' && psJourneyPayload) return { kind: 'data', payload: psJourneyPayload };
+    if (psProbe === 'missing') return { kind: 'missing' };
+    if (psProbe === 'error') return { kind: 'error' };
+    return undefined;
+  }, [psProbe, psJourneyPayload]);
 
   if (!bed) return null;
+
+  /** Evita um frame com badge errado antes do primeiro fetch. */
+  const psUi: PsProbe | 'loading' =
+    psProbe === 'idle' && isOpen && patientId ? 'loading' : psProbe;
 
   const isOccupied = !!bed.patientId;
   const isCriticalUTI = bed.isUTI && (bed.stayDuration || 0) > 4;
@@ -241,6 +307,151 @@ const ModalProntuario: React.FC<ModalProntuarioProps> = ({ isOpen, onClose, bed 
                        </div>
                        <ArrowRightCircle className="w-6 h-6 text-blue-500 group-hover:translate-x-1 transition-transform" />
                     </section>
+
+                    {/* Histórico PS — probe ao abrir prontuário; só mostramos “Passou pelo PS” quando a API encontra jornada */}
+                    <section
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setPsHistoricoOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPsHistoricoOpen(true);
+                        }
+                      }}
+                      className={`relative p-6 rounded-3xl flex items-center justify-between group cursor-pointer transition-all outline-none overflow-hidden border ${
+                        psUi === 'ok'
+                          ? 'bg-emerald-600/5 border-emerald-500/25 hover:bg-emerald-600/10 hover:border-emerald-400/35 focus-visible:ring-2 focus-visible:ring-emerald-500/40'
+                          : psUi === 'missing'
+                            ? 'bg-amber-600/5 border-amber-500/25 hover:bg-amber-600/10 hover:border-amber-400/35 focus-visible:ring-2 focus-visible:ring-amber-500/40'
+                            : psUi === 'error'
+                              ? 'bg-slate-600/5 border-slate-600/40 hover:bg-slate-600/10 focus-visible:ring-2 focus-visible:ring-slate-500/30'
+                              : 'bg-slate-800/30 border-slate-700/50 hover:bg-slate-800/50 focus-visible:ring-2 focus-visible:ring-slate-500/30'
+                      }`}
+                      aria-label={
+                        psUi === 'ok'
+                          ? 'Histórico do Pronto Socorro — jornada PS encontrada para este número'
+                          : 'Histórico do Pronto Socorro — consultar vínculo com o PS'
+                      }
+                    >
+                      <span
+                        className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-3xl pointer-events-none ${
+                          psUi === 'ok'
+                            ? 'bg-gradient-to-b from-emerald-400/90 via-emerald-500/70 to-emerald-600/40'
+                            : psUi === 'missing'
+                              ? 'bg-gradient-to-b from-amber-400/90 via-amber-600/60 to-amber-800/40'
+                              : 'bg-gradient-to-b from-slate-500/60 via-slate-600/40 to-slate-800/30'
+                        }`}
+                        aria-hidden
+                      />
+                      <div className="flex items-center gap-4 pl-1">
+                        <div
+                          className={`relative w-12 h-12 rounded-xl flex items-center justify-center border shadow-[0_0_20px_rgba(52,211,153,0.08)] ${
+                            psUi === 'ok'
+                              ? 'bg-emerald-500/20 border-emerald-500/25'
+                              : psUi === 'missing'
+                                ? 'bg-amber-500/15 border-amber-500/25'
+                                : 'bg-slate-700/40 border-slate-600/40'
+                          }`}
+                        >
+                          <Stethoscope
+                            className={`w-6 h-6 ${
+                              psUi === 'ok' ? 'text-emerald-400' : psUi === 'missing' ? 'text-amber-400' : 'text-slate-400'
+                            }`}
+                          />
+                          {(psUi === 'loading' || psUi === 'idle') && (
+                            <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-800 border border-slate-600">
+                              <Loader2 className="h-2.5 w-2.5 animate-spin text-emerald-400" aria-hidden />
+                            </span>
+                          )}
+                          {psUi === 'ok' && (
+                            <span
+                              className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 border border-slate-900"
+                              title="Jornada PS encontrada na base"
+                            >
+                              <CheckCircle2 className="h-2.5 w-2.5 text-white" aria-hidden />
+                            </span>
+                          )}
+                          {psUi === 'missing' && (
+                            <span
+                              className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 border border-slate-900"
+                              title="Sem dados do Pronto Socorro"
+                            >
+                              <AlertTriangle className="h-2.5 w-2.5 text-slate-900" aria-hidden />
+                            </span>
+                          )}
+                          {psUi === 'error' && (
+                            <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-600 border border-slate-900">
+                              <WifiOff className="h-2.5 w-2.5 text-white" aria-hidden />
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 gap-y-1 mb-0.5">
+                            <h4 className="text-sm font-bold text-white uppercase tracking-tight">Histórico do Pronto Socorro</h4>
+                            {(psUi === 'loading' || psUi === 'idle') && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-600/25 border border-slate-500/35 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+                                <Loader2 className="w-3 h-3 animate-spin" aria-hidden />
+                                A verificar…
+                              </span>
+                            )}
+                            {psUi === 'ok' && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-300 shrink-0">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" aria-hidden />
+                                Passou pelo PS
+                              </span>
+                            )}
+                            {psUi === 'missing' && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-400/40 px-2 py-0.5 text-[9px] font-bold tracking-tight text-amber-100 shrink-0 max-w-[min(100%,14rem)] text-center leading-tight">
+                                <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" aria-hidden />
+                                Sem dados do Pronto Socorro
+                              </span>
+                            )}
+                            {psUi === 'error' && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-600/30 border border-slate-500/35 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+                                <WifiOff className="w-3 h-3" aria-hidden />
+                                PS indisponível
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400">
+                            {psUi === 'missing' ? (
+                              <>
+                                <span className="text-amber-200/95">Sem dados do Pronto Socorro</span>
+                                <span className="text-amber-400/90 font-bold font-mono ml-1">#{bed.patientId}</span>
+                              </>
+                            ) : (
+                              <>
+                                Chegada, internação, exames e medicações no PS{' '}
+                                <span
+                                  className={`font-bold font-mono ${
+                                    psUi === 'ok' ? 'text-emerald-400' : 'text-slate-400'
+                                  }`}
+                                >
+                                  #{bed.patientId}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowRightCircle
+                        className={`w-6 h-6 shrink-0 transition-transform group-hover:translate-x-1 ${
+                          psUi === 'ok'
+                            ? 'text-emerald-500'
+                            : psUi === 'missing'
+                              ? 'text-amber-500'
+                              : 'text-slate-500'
+                        }`}
+                      />
+                    </section>
+
+                    <ModalHistoricoPs
+                      isOpen={psHistoricoOpen}
+                      onClose={() => setPsHistoricoOpen(false)}
+                      attendanceId={bed.patientId || ''}
+                      warmStart={historicoWarmStart}
+                    />
 
                     {/* Localização */}
                     <section>

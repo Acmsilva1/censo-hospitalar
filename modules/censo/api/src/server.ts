@@ -11,7 +11,7 @@ import routes from './features/censo/routes/censoRoutes.js';
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use('/api', routes);
+
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:3020';
 
 async function publishOrchestratorEvent(event: Record<string, unknown>) {
@@ -70,6 +70,33 @@ app.post('/api/integration/orchestrator-sync', (req, res) => {
 app.get('/api/integration/orchestrator-correlations', (_req, res) => {
   res.json({ items: CensoService.getInstance().getOrchestratorCorrelations() });
 });
+
+/** Proxy para jornada PS (evita CORS e funciona com SPA servida pelo Express). */
+app.get('/api/integration/ps-journey/:atendimentoId', async (req, res) => {
+  const raw = req.params.atendimentoId;
+  if (!raw || String(raw).trim() === '') {
+    return res.status(400).json({ error: 'atendimentoId obrigatorio' });
+  }
+  const id = encodeURIComponent(String(raw).trim());
+  const url = `${config.JORNADA_API_URL}/api/journey/${id}`;
+  try {
+    const upstream = await fetch(url, { headers: { accept: 'application/json' } });
+    if (upstream.status === 404) {
+      return res.status(404).json({ error: 'journey_not_found' });
+    }
+    if (!upstream.ok) {
+      return res.status(502).json({ error: 'jornada_upstream_error', status: upstream.status });
+    }
+    const data = await upstream.json();
+    return res.json(data);
+  } catch (err) {
+    console.warn('[MVC Server] ps-journey proxy falhou:', url, err);
+    return res.status(502).json({ error: 'jornada_unreachable' });
+  }
+});
+
+/** Rotas REST genéricas por último — não somarem por cima de /api/integration. */
+app.use('/api', routes);
 
 // ── Entrega da SPA (build Vite em web/dist) ───────────────────────────
 const webDistPath = path.resolve(import.meta.dirname, '../../web/dist');

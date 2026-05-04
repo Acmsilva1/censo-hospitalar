@@ -46,6 +46,8 @@ class DuckDbSource implements SqlDataSource {
       'tbl_tempos_tc_e_us',
       'tbl_tempos_reavaliacao',
       'tbl_vias_medicamentos',
+      'tbl_farm_relatorio_pendentes_base',
+      'tbl_farm_relatorio_liberadas_base',
       'meta_tempos',
     ];
     for (const base of files) {
