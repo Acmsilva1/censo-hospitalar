@@ -713,6 +713,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
   justify-content: center;
   flex-shrink: 0;
   overflow: hidden;
+  transform-style: preserve-3d;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.42),
     0 14px 32px rgba(0, 0, 0, 0.38);
@@ -720,6 +721,35 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
     transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
     filter 0.35s ease,
     box-shadow 0.35s ease;
+}
+
+.vh-unit-photo-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 16%, rgba(255, 255, 255, 0.28), transparent 44%),
+    linear-gradient(165deg, rgba(7, 25, 40, 0.18) 0%, rgba(7, 30, 50, 0.46) 72%, rgba(5, 18, 31, 0.6) 100%);
+  z-index: 1;
+}
+
+.vh-unit-photo-glass {
+  position: absolute;
+  inset: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 35%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  z-index: 2;
+}
+
+.vh-mini-hospital-3d {
+  position: relative;
+  z-index: 1;
+  width: 88%;
+  height: auto;
+  max-height: 112px;
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.4));
+  animation: vhFloat 2.8s ease-in-out infinite alternate;
 }
 
 .vh-unit-visual-wrap::after {
@@ -738,7 +768,7 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
 }
 
 .vh-unit-card:hover .vh-unit-visual-wrap {
-  transform: translateY(-4px) scale(1.03);
+  transform: perspective(860px) rotateX(6deg) rotateY(-4deg) translateY(-4px) scale(1.03);
   filter: brightness(1.06) saturate(1.06);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.52),
@@ -746,22 +776,12 @@ iframe { width: 100%; height: 100%; border: none; background: #0f141c; }
     0 0 0 1px rgba(165, 240, 255, 0.38);
 }
 
-.vh-unit-hospital-svg {
-  position: relative;
-  z-index: 1;
-  width: 78%;
-  height: auto;
-  max-height: 102px;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.28));
-  animation: vhFloat 2.85s ease-in-out infinite alternate;
+.vh-unit-card:hover .vh-mini-hospital-3d {
+  transform: translateY(-2px) scale(1.04);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .vh-unit-visual-wrap::after {
-    animation: none;
-  }
-
-  .vh-unit-hospital-svg {
     animation: none;
   }
 

@@ -258,35 +258,64 @@ function formatUnitCardTitle(label: string): string {
   return s || label.trim();
 }
 
-function UnitHospitalIllustration({ uniqueKey }: { uniqueKey: string }) {
-  const sid = uniqueKey.replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 48) || 'u';
-  const gWin = `vhUWin_${sid}`;
-  const gFa = `vhUFac_${sid}`;
+function MiniHospital3D({ hospitalId, index }: { hospitalId: string; index: number }) {
+  const key = canonicalUnitKey(hospitalId);
+  let seed = 0;
+  for (let i = 0; i < key.length; i++) seed += key.charCodeAt(i);
+  seed += index * 31;
+  const bodyHue = (190 + (seed % 70)) % 360;
+  const sideHue = (bodyHue + 8) % 360;
+  const roofHue = (bodyHue - 12 + 360) % 360;
+  const winGlow = seed % 2 === 0 ? '#bff7ff' : '#d6f8ff';
   return (
-    <svg viewBox="0 0 112 118" className="vh-unit-hospital-svg" aria-hidden focusable="false">
+    <svg viewBox="0 0 240 140" className="vh-mini-hospital-3d" aria-hidden focusable="false">
       <defs>
-        <linearGradient id={gWin} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.2)" />
+        <linearGradient id={`vhRoof_${seed}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={`hsl(${roofHue} 58% 62%)`} />
+          <stop offset="100%" stopColor={`hsl(${roofHue} 62% 38%)`} />
         </linearGradient>
-        <linearGradient id={gFa} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
-          <stop offset="100%" stopColor="rgba(255,255,255,0.28)" />
+        <linearGradient id={`vhFront_${seed}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={`hsl(${bodyHue} 58% 66%)`} />
+          <stop offset="100%" stopColor={`hsl(${bodyHue} 55% 42%)`} />
+        </linearGradient>
+        <linearGradient id={`vhSide_${seed}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={`hsl(${sideHue} 52% 52%)`} />
+          <stop offset="100%" stopColor={`hsl(${sideHue} 50% 34%)`} />
+        </linearGradient>
+        <linearGradient id={`vhBase_${seed}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={`hsl(${sideHue} 34% 28%)`} />
+          <stop offset="100%" stopColor={`hsl(${sideHue} 36% 16%)`} />
         </linearGradient>
       </defs>
-      <ellipse cx="56" cy="108" rx="40" ry="6" fill="rgba(0,0,0,0.22)" />
-      <path fill="rgba(255,255,255,0.18)" d="M56 10l46 26v8h-8v68H18V44h-8v-8z" />
-      <path fill={`url(#${gFa})`} d="M24 46h64v62H24z" />
-      <path fill="rgba(255,255,255,0.38)" d="M40 28h32v22H40z" />
-      <path fill="rgba(255,255,255,0.45)" d="M48 32h16v14H48z" />
-      <path stroke="rgba(255,255,255,0.55)" strokeWidth="2.2" d="M56 32v10M50 37h12" strokeLinecap="round" />
-      <rect x="32" y="54" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
-      <rect x="50.5" y="54" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
-      <rect x="69" y="54" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
-      <rect x="32" y="74" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
-      <rect x="50.5" y="74" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
-      <rect x="69" y="74" width="11" height="15" rx="1.5" fill={`url(#${gWin})`} />
-      <path fill="rgba(255,255,255,0.25)" d="M24 46l32-18 32 18v4H24z" />
+      <ellipse cx="124" cy="124" rx="86" ry="10.5" fill="rgba(5,14,25,0.38)" />
+      <polygon points="72,44 144,20 196,42 124,66" fill={`url(#vhRoof_${seed})`} />
+      <polygon points="72,44 124,66 124,108 72,86" fill={`url(#vhSide_${seed})`} />
+      <polygon points="124,66 196,42 196,86 124,108" fill={`url(#vhFront_${seed})`} />
+      <polygon points="66,87 124,108 124,114 66,94" fill={`url(#vhBase_${seed})`} />
+      <polygon points="124,108 204,84 204,90 124,114" fill={`url(#vhBase_${seed})`} />
+      <polygon points="108,49 126,43 140,49 122,56" fill="rgba(255,255,255,0.6)" />
+      <polygon points="122,56 140,49 140,66 122,72" fill="rgba(255,255,255,0.42)" />
+      <polygon points="108,49 122,56 122,72 108,65" fill="rgba(255,255,255,0.3)" />
+      <rect x="118.5" y="47.5" width="7" height="18" rx="1.4" fill="rgba(255,255,255,0.7)" />
+      <rect x="113" y="53.5" width="18" height="6" rx="1.4" fill="rgba(255,255,255,0.7)" />
+      {Array.from({ length: 3 }).map((_, r) =>
+        Array.from({ length: 4 }).map((__, c) => {
+          const x = 132 + c * 14;
+          const y = 70 + r * 11;
+          return <rect key={`f-${r}-${c}`} x={x} y={y} width="8.5" height="7" rx="1.2" fill={winGlow} opacity="0.82" />;
+        })
+      )}
+      {Array.from({ length: 2 }).map((_, r) =>
+        Array.from({ length: 2 }).map((__, c) => {
+          const x = 86 + c * 14;
+          const y = 72 + r * 11;
+          return <rect key={`s-${r}-${c}`} x={x} y={y} width="7.5" height="6.6" rx="1.2" fill={winGlow} opacity="0.65" />;
+        })
+      )}
+      <polygon points="154,108 170,103 170,84 154,89" fill="rgba(14,24,40,0.6)" />
+      <polygon points="154,89 170,84 179,89 163,94" fill="rgba(255,255,255,0.2)" />
+      <path d="M124 66L196 42" stroke="rgba(255,255,255,0.2)" strokeWidth="1.1" />
+      <path d="M72 44L124 66" stroke="rgba(255,255,255,0.16)" strokeWidth="1.1" />
     </svg>
   );
 }
@@ -628,7 +657,8 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                         }}
                         aria-hidden
                       >
-                        <UnitHospitalIllustration uniqueKey={u.id} />
+                        <MiniHospital3D hospitalId={u.id} index={index} />
+                        <div className="vh-unit-photo-glass" />
                       </div>
                       <span className="vh-unit-card-title">{formatUnitCardTitle(u.label)}</span>
                     </motion.button>

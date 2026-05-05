@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useCenso } from '../hooks/useCenso';
 import { GridSetor } from '../components/GridSetor';
+import { useOrchestratorClock } from '../../../shared/hooks/useOrchestratorClock';
 
 import { 
   Activity, LayoutDashboard, User, Search, RefreshCcw, Clock,
@@ -11,39 +12,6 @@ import type { Bed } from '../types/census';
 import ModalProntuario from '../components/ModalProntuario';
 import { formatHospitalName } from '../../../shared/utils/formatters';
 
-const CountdownTimer: React.FC<{ nextUpdate: string | null }> = ({ nextUpdate }) => {
-  const [timeLeft, setTimeLeft] = useState<string>('--:--');
-
-  useEffect(() => {
-    if (!nextUpdate) {
-      setTimeLeft('--:--');
-      return;
-    }
-
-    const timer = setInterval(() => {
-      const target = new Date(nextUpdate).getTime();
-      const now = new Date().getTime();
-      const diff = target - now;
-
-      if (diff <= 0) {
-        setTimeLeft('00:00');
-        return;
-      }
-
-      const minutes = Math.floor(diff / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft(
-        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-      );
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [nextUpdate]);
-
-  return <>{timeLeft}</>;
-};
-
 const Dashboard: React.FC = () => {
   const [activeHospital, setActiveHospital] = useState('');
   const [activeFloor, setActiveFloor] = useState<string | null>(null);
@@ -53,7 +21,8 @@ const Dashboard: React.FC = () => {
   const [hospitalMenuOpen, setHospitalMenuOpen] = useState(false);
   const hospitalMenuRef = useRef<HTMLDivElement | null>(null);
   
-  const { data, loading, error, hospitals, lastUpdate, nextUpdate, stats } = useCenso(activeHospital);
+  const { data, loading, error, hospitals, stats } = useCenso(activeHospital);
+  const { timeLeft, lastUpdateLabel } = useOrchestratorClock();
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
@@ -213,7 +182,7 @@ const Dashboard: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-wider">Próxima carga em</span>
                 </div>
                 <div className="text-lg font-mono font-bold text-blue-400 tracking-tighter">
-                  <CountdownTimer nextUpdate={nextUpdate} />
+                  {timeLeft}
                 </div>
               </div>
               
@@ -225,7 +194,7 @@ const Dashboard: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-wider">Última atualização</span>
                 </div>
                 <div className="text-sm font-semibold text-slate-300">
-                  {lastUpdate ? new Date(lastUpdate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                  {lastUpdateLabel}
                 </div>
               </div>
             </div>

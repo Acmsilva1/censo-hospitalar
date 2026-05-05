@@ -4,6 +4,7 @@ import MapFlow from './components/MapFlow'
 import StepDetailModal from './components/StepDetailModal'
 import { PatientQueueRow } from './components/PatientQueueRow'
 import { isInternacaoOutcome } from './lib/internacaoOutcome'
+import { useOrchestratorClock } from '../../shared/hooks/useOrchestratorClock'
 import { HeartPulse, Activity, ChevronLeft, ChevronRight, Map as MapIcon, Pill, Beaker, Camera, RefreshCw, Timer, Search } from 'lucide-react'
 
 export type PatientSummary = {
@@ -83,8 +84,7 @@ export default function App() {
   const [loadingJourney, setLoadingJourney] = useState(false)
   const [selectedStep, setSelectedStep] = useState<any>(null)
   const [syncStatus, setSyncStatus] = useState<string>('Ocioso')
-  const [timeLeft, setTimeLeft] = useState(600) // 10 minutos
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [lastAutoRefreshSecond, setLastAutoRefreshSecond] = useState<number | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [patientPanelOpen, setPatientPanelOpen] = useState(false)
@@ -92,6 +92,7 @@ export default function App() {
   const [panelOutcomeFilter, setPanelOutcomeFilter] = useState<'all' | 'alta' | 'internacao'>('all')
   const [apiLoading, setApiLoading] = useState(true)
   const [apiError, setApiError] = useState<string | null>(null)
+  const { timeLeft, lastUpdateLabel, secondsLeft } = useOrchestratorClock()
 
   /** Evita closure velha no intervalo ETL / refresh. */
   const selectedPatientRef = useRef<PatientSummary | null>(null)
@@ -138,23 +139,20 @@ export default function App() {
         })
     }
 
-    setLastUpdate(new Date())
-    setTimeLeft(600)
   }, [])
 
-  // Cronômetro do Ciclo ETL
+  // Dispara refresh automático quando o contador zera
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          refreshData()
-          return 600
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [selectedUnit, selectedPatient, refreshData])
+    if (secondsLeft == null || secondsLeft !== 0) return
+    if (lastAutoRefreshSecond === 0) return
+    setLastAutoRefreshSecond(0)
+    refreshData()
+  }, [secondsLeft, refreshData, lastAutoRefreshSecond])
+
+  useEffect(() => {
+    if (secondsLeft == null || secondsLeft === 0) return
+    setLastAutoRefreshSecond(secondsLeft)
+  }, [secondsLeft])
 
   // Alterna mensagens de carregamento para o efeito de "mensageria"
   useEffect(() => {
@@ -530,7 +528,7 @@ export default function App() {
                     <span className="text-[9px] uppercase tracking-widest font-black">Próximo ETL</span>
                   </div>
                   <span className="text-white font-mono font-bold text-sm leading-none">
-                    {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                    {timeLeft}
                   </span>
                 </div>
                 
@@ -542,7 +540,7 @@ export default function App() {
                     <span className="text-[9px] text-app-muted uppercase tracking-widest font-black">Última Atualização</span>
                   </div>
                   <span className="text-app-muted font-mono text-[11px] leading-none">
-                    {lastUpdate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {lastUpdateLabel}
                   </span>
                 </div>
               </div>

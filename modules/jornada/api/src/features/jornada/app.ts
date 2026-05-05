@@ -633,6 +633,31 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
     const sortedAdmin = meds.map(m => m).sort((a, b) => new Date(a.DT_ADMINISTRACAO).getTime() - new Date(b.DT_ADMINISTRACAO).getTime());
     const materials = getViasForJourney(match, searchId);
     
+    const medDetail = sorted.map((m, idx) => {
+      const r = m as Record<string, unknown>;
+      let name = pickLabel(r, [
+        'DS_MEDICAMENTO',
+        'DS_PRODUTO',
+        'DS_ITEM',
+        'NM_MEDICAMENTO',
+        'DS_MATERIAL',
+        'MEDICAMENTO',
+        'PRODUTO',
+        'DS',
+        'ITEM',
+      ]);
+      if (!name) name = materials[idx] || '';
+      if (!name) name = pickLabel(r, ['OBSERVACAO', 'DS_OBSERVACAO', 'COMPLEMENTO']) || '';
+      if (!name) name = materials[0] || '';
+      if (!name) name = 'Medicação (sem descrição no extract)';
+      const mt = m as { DT_ADMINISTRACAO?: string; DT_PRESCRICAO?: string };
+      const timeRaw = mt.DT_ADMINISTRACAO || mt.DT_PRESCRICAO;
+      const padraoFarm = resolveFarmPadrao(match, searchId, m, name);
+      const row: Record<string, unknown> = { name, time: timeRaw, status: 'Checado' };
+      if (padraoFarm === 'S' || padraoFarm === 'N') row.padrao = padraoFarm;
+      return row;
+    });
+
     steps.push({ 
       type: 'ACTION', 
       step: 'MEDICACAO', 
@@ -641,30 +666,8 @@ fastify.get<{ Params: { '*': string } }>('/api/journey/*', async (request, reply
       endTime: sortedAdmin[sortedAdmin.length - 1].DT_ADMINISTRACAO,
       minutes: diffInMin(sorted[0].DT_PRESCRICAO, sortedAdmin[sortedAdmin.length - 1].DT_ADMINISTRACAO),
       count: meds.length, 
-      detail: sorted.map((m, idx) => {
-        const r = m as Record<string, unknown>;
-        let name = pickLabel(r, [
-          'DS_MEDICAMENTO',
-          'DS_PRODUTO',
-          'DS_ITEM',
-          'NM_MEDICAMENTO',
-          'DS_MATERIAL',
-          'MEDICAMENTO',
-          'PRODUTO',
-          'DS',
-          'ITEM',
-        ]);
-        if (!name) name = materials[idx] || '';
-        if (!name) name = pickLabel(r, ['OBSERVACAO', 'DS_OBSERVACAO', 'COMPLEMENTO']) || '';
-        if (!name) name = materials[0] || '';
-        if (!name) name = 'Medicação (sem descrição no extract)';
-        const mt = m as { DT_ADMINISTRACAO?: string; DT_PRESCRICAO?: string };
-        const timeRaw = mt.DT_ADMINISTRACAO || mt.DT_PRESCRICAO;
-        const padraoFarm = resolveFarmPadrao(match, searchId, m, name);
-        const row: Record<string, unknown> = { name, time: timeRaw, status: 'Checado' };
-        if (padraoFarm === 'S' || padraoFarm === 'N') row.padrao = padraoFarm;
-        return row;
-      }),
+      hasNaoPadrao: medDetail.some((d) => String((d as Record<string, unknown>).padrao ?? '').toUpperCase() === 'N'),
+      detail: medDetail,
     });
   }
 

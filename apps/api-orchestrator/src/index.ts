@@ -48,6 +48,22 @@ const targets = {
 const seenEventIds = new Set<string>();
 const states = new Map<string, CorrelationState>();
 const sockets = new Set<any>();
+const SYNC_INTERVAL_SECONDS = Number(process.env.ORCHESTRATOR_SYNC_INTERVAL_SECONDS || 600);
+let lastSyncAtMs = Date.now();
+
+function syncClockSnapshot(nowMs: number = Date.now()) {
+  const elapsed = nowMs - lastSyncAtMs;
+  if (elapsed >= SYNC_INTERVAL_SECONDS * 1000) {
+    const ticks = Math.floor(elapsed / (SYNC_INTERVAL_SECONDS * 1000));
+    lastSyncAtMs += ticks * SYNC_INTERVAL_SECONDS * 1000;
+  }
+  return {
+    now: new Date(nowMs).toISOString(),
+    lastUpdateAt: new Date(lastSyncAtMs).toISOString(),
+    nextUpdateAt: new Date(lastSyncAtMs + SYNC_INTERVAL_SECONDS * 1000).toISOString(),
+    intervalSeconds: SYNC_INTERVAL_SECONDS,
+  };
+}
 
 function stateKey(atendimentoId: string, pacienteId: string) {
   return `${atendimentoId}::${pacienteId}`;
@@ -150,6 +166,7 @@ app.get('/state', async () => ({
 
 app.get('/health', async () => ({ ok: true, seenEvents: seenEventIds.size, states: states.size }));
 app.get('/targets', async () => ({ targets }));
+app.get('/sync/clock', async () => syncClockSnapshot());
 
 app.register(async (instance) => {
   instance.get('/ws/state', { websocket: true }, (socket) => {

@@ -40,8 +40,13 @@ export default function SectorBackgroundNode({ data }: any) {
   const minutes = Math.round(Number(data.stepData?.minutes || 0))
   const slaLimit = Number(data.stepData?.slaLimit || 999)
   const slaAlert = Number(data.stepData?.slaAlert || 999)
+  const hasNaoPadrao =
+    stepKey === 'MEDICACAO' &&
+    (data.stepData?.hasNaoPadrao === true ||
+      (Array.isArray(data.stepData?.detail) &&
+        data.stepData.detail.some((med: any) => String(med?.padrao ?? '').toUpperCase() === 'N')))
   
-  const isOverMeta = hasStep && minutes > slaLimit
+  const isOverMeta = hasStep && (minutes > slaLimit || hasNaoPadrao)
   const isOverAlert = hasStep && minutes >= slaAlert && minutes <= slaLimit
   
   const statusColor = isOverMeta ? '#EF4444' : isOverAlert ? '#EAB308' : null
@@ -345,12 +350,25 @@ export default function SectorBackgroundNode({ data }: any) {
                        <span className="text-[8px] text-app-muted uppercase tracking-widest font-black block px-1">Prescrições Ativas:</span>
                        <div className="max-h-[110px] overflow-y-auto pr-1 custom-scrollbar space-y-1">
                          {data.stepData.detail.map((med: any, idx: number) => (
-                           <div key={idx} className="p-2 bg-white/5 rounded border border-white/5 flex items-center justify-between gap-3">
+                           <div
+                             key={idx}
+                             className={`p-2 rounded border flex items-center justify-between gap-3 ${
+                               String(med?.padrao ?? '').toUpperCase() === 'N'
+                                 ? 'bg-red-500/10 border-red-500/30'
+                                 : 'bg-white/5 border-white/5'
+                             }`}
+                           >
                              <div className="flex flex-col">
                                <span className="text-[9px] text-white/90 font-bold leading-tight line-clamp-1">{med.name}</span>
                                <span className="text-[8px] text-app-muted font-mono">{fmtTime(med.time)}</span>
                              </div>
-                             <div className="w-2 h-2 rounded-full bg-dash-live animate-pulse shadow-[0_0_5px_var(--dash-live)]" />
+                             {String(med?.padrao ?? '').toUpperCase() === 'N' ? (
+                               <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-red-500 text-white uppercase tracking-tight">
+                                 N
+                               </span>
+                             ) : (
+                               <div className="w-2 h-2 rounded-full bg-dash-live animate-pulse shadow-[0_0_5px_var(--dash-live)]" />
+                             )}
                            </div>
                          ))}
                        </div>
@@ -425,12 +443,20 @@ export default function SectorBackgroundNode({ data }: any) {
                          <div className="flex justify-between items-center mb-1">
                             <span className="text-[8px] text-app-muted uppercase font-black uppercase tracking-widest">Performance SLA:</span>
                             <span className={`text-[9px] font-bold ${isOverMeta ? 'text-red-400' : isOverAlert ? 'text-yellow-400' : 'text-dash-live'}`}>
-                               {isOverMeta ? 'Meta Gerência Excedida' : isOverAlert ? 'Meta Supervisão Excedida' : 'Dentro da Meta'}
+                               {hasNaoPadrao
+                                 ? 'Medicação não padrão'
+                                 : isOverMeta
+                                   ? 'Meta Gerência Excedida'
+                                   : isOverAlert
+                                     ? 'Meta Supervisão Excedida'
+                                     : 'Dentro da Meta'}
                             </span>
                          </div>
                          <div className="flex items-baseline gap-1">
                             <span className="text-xs font-bold text-white">{Math.round(minutes)} min</span>
-                            <span className="text-[9px] text-app-muted">de meta {data.stepData.slaLimit} min</span>
+                            <span className="text-[9px] text-app-muted">
+                              {hasNaoPadrao ? 'com item fora do padrão' : `de meta ${data.stepData.slaLimit} min`}
+                            </span>
                          </div>
                       </div>
                     )}

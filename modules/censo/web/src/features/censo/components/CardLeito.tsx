@@ -39,8 +39,8 @@ export const CardLeito: React.FC<LeitoProps> = memo(({ floorName, setorName, lei
     ringColor = 'border-[var(--status-occupied)]/50 group-hover:border-[var(--status-occupied)] shadow-[0_4px_15px_rgba(167,139,250,0.15)]';
     badgeColor = 'text-[var(--status-occupied)] bg-[var(--status-occupied)]/15 backdrop-blur-md border-[var(--status-occupied)]/20 shadow-[0_0_20px_rgba(167,139,250,0.2)]';
   } else if (isReserved) {
-    ringColor = 'border-[var(--status-reserved)]/70 group-hover:border-[var(--status-reserved)] shadow-[0_6px_15px_rgba(99,102,241,0.12)]';
-    badgeColor = 'text-[var(--status-reserved)] bg-[var(--status-reserved)]/15 backdrop-blur-md border-[var(--status-reserved)]/20 shadow-[0_0_15px_rgba(99,102,241,0.1)]';
+    ringColor = 'border-blue-500/70 group-hover:border-blue-400 shadow-[0_6px_15px_rgba(59,130,246,0.18)]';
+    badgeColor = 'text-blue-400 bg-blue-500/15 backdrop-blur-md border-blue-500/25 shadow-[0_0_15px_rgba(59,130,246,0.14)]';
   } else if (isCleaning) {
     ringColor = 'border-[var(--status-cleaning)]/60 group-hover:border-[var(--status-cleaning)] shadow-[0_4px_12px_rgba(245,158,11,0.08)]';
     badgeColor = 'text-[var(--status-cleaning)] bg-[var(--status-cleaning)]/15 backdrop-blur-md border-[var(--status-cleaning)]/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]';
@@ -167,7 +167,7 @@ export const CardLeito: React.FC<LeitoProps> = memo(({ floorName, setorName, lei
             isOccupied
               ? 'border-rose-500/40 bg-rose-500/5 text-rose-400'
               : isReserved 
-              ? 'border-indigo-500/40 bg-indigo-500/5 text-indigo-400' 
+              ? 'border-blue-500/40 bg-blue-500/5 text-blue-400' 
               : isCleaning
               ? 'border-amber-500/30 bg-amber-500/5 text-amber-400'
               : isMaintenance
