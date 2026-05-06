@@ -98,12 +98,11 @@ export function App() {
                 <span className="card-sub">Gestao de leitos e fila de alocacao</span>
               </button>
               <button className="big-card" onClick={() => openModule('cc')}>
-                <span className="card-kicker">Novo modulo</span>
+                <span className="card-kicker">CIRURGICO</span>
                 <span className="card-title">Centro Cirúrgico</span>
                 <span className="card-sub">Monitoramento em tempo real por salas e roll de espera</span>
               </button>
               <button className="big-card" onClick={() => openModule('visao')}>
-                <span className="card-kicker">Novo modulo</span>
                 <span className="card-title">Visao hospitalar</span>
                 <span className="card-sub">Ocupacao por andar e fluxo do PS</span>
               </button>
@@ -148,7 +147,7 @@ export function App() {
               className={`iframe-pane ${screen === 'visao' ? 'is-active' : ''}`}
               aria-hidden={screen !== 'visao'}
             >
-              <VisaoHospitalar censoApiUrl={targets.censoApi} jornadaApiUrl={targets.jornadaApi} />
+              <VisaoHospitalar censoApiUrl={targets.censoApi} jornadaApiUrl={targets.jornadaApi} ccApiUrl={targets.ccApi} />
             </div>
           </section>
         </section>
@@ -156,3 +155,4 @@ export function App() {
     </div>
   );
 }
+

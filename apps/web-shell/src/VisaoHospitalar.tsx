@@ -3,11 +3,13 @@ import { io, type Socket } from 'socket.io-client';
 import { HospitalBuilding3D, type BuildingFloor3D } from './HospitalBuilding3D';
 import { HospitalFloorInterior3D } from './HospitalFloorInterior3D';
 import { PSFloorView3D } from './PSFloorView3D';
+import { CCFloorView3D } from './CCFloorView3D';
 import { AnimatePresence, motion } from 'framer-motion';
 
 type VisaoHospitalarProps = {
   censoApiUrl: string;
   jornadaApiUrl: string;
+  ccApiUrl: string;
 };
 
 type UnitOption = { id: string; label: string };
@@ -37,7 +39,14 @@ type StageStat = {
   pct: number;
 };
 
-type FloorKind = 'PS' | 'INTERNACAO' | 'UTI_UPC' | 'APOIO';
+type FloorKind = 'PS' | 'CC' | 'INTERNACAO' | 'UTI_UPC' | 'APOIO';
+
+type CcRoom = {
+  roomName: string;
+  inRoomCount: number;
+  waitingCount: number;
+  completedCount: number;
+};
 
 type FloorModel = {
   id: string;
@@ -53,6 +62,7 @@ type FloorModel = {
     total: number;
     beds: Bed[];
   }>;
+  ccRooms?: CcRoom[];
 };
 
 function floorPressureLabel(pct: number) {
@@ -74,11 +84,14 @@ const STAGE_ORDER: StageKey[] = ['TRIAGEM', 'CONSULTA', 'LABORATORIO', 'IMAGEM',
 const BASE_UNITS: string[] = [
   'ES - HOSPITAL VITORIA',
   'ES - PS VV',
+  'ES - BRESSAN',
   'RJ - PS CAMPO GRANDE',
   'RJ - PS BOTAFOGO',
   'RJ - PS BARRA DA TIJUCA',
+  'DF - AGUAS CLARAS',
   'DF - PS SIG',
   'DF - PS TAGUATINGA',
+  'MG - FUNCIONARIOS',
   'MG BH GUTIERREZ - PS',
   'MG - PAMPULHA',
 ];
@@ -201,11 +214,14 @@ function canonicalUnitKey(raw: string) {
   const t = normalizeText(raw);
   if (t.includes('VV') || t.includes('VILA VELHA')) return 'ES_PS_VV';
   if (t.includes('VITORIA')) return 'ES_HOSPITAL_VITORIA';
+  if (t.includes('BRESSAN')) return 'ES_BRESSAN';
   if (t.includes('BOTAFOGO')) return 'RJ_PS_BOTAFOGO';
   if (t.includes('CAMPO GRANDE')) return 'RJ_PS_CAMPO_GRANDE';
   if (t.includes('BARRA DA TIJUCA')) return 'RJ_PS_BARRA_DA_TIJUCA';
+  if (t.includes('AGUAS CLARAS')) return 'DF_AGUAS_CLARAS';
   if (t.includes('TAGUATINGA')) return 'DF_PS_TAGUATINGA';
   if (t.includes('SIG')) return 'DF_PS_SIG';
+  if (t.includes('FUNCIONARIOS')) return 'MG_FUNCIONARIOS';
   if (t.includes('GUTIERREZ')) return 'MG_GUTIERREZ';
   if (t.includes('PAMPULHA')) return 'MG_PAMPULHA';
   return t;
@@ -228,6 +244,18 @@ const UNIT_CARD_THEME: Record<string, UnitCardTheme> = {
   ES_HOSPITAL_VITORIA: {
     background: 'linear-gradient(160deg, #0ea5e9 0%, #0284c7 45%, #075985 100%)',
     accent: '#7dd3fc',
+  },
+  ES_BRESSAN: {
+    background: 'linear-gradient(160deg, #0f766e 0%, #0d9488 48%, #115e59 100%)',
+    accent: '#5eead4',
+  },
+  DF_AGUAS_CLARAS: {
+    background: 'linear-gradient(160deg, #0891b2 0%, #0e7490 48%, #155e75 100%)',
+    accent: '#67e8f9',
+  },
+  MG_FUNCIONARIOS: {
+    background: 'linear-gradient(160deg, #7c3aed 0%, #6d28d9 48%, #4c1d95 100%)',
+    accent: '#c4b5fd',
   },
   ES_PS_VV: {
     background: 'linear-gradient(160deg, #2563eb 0%, #1d4ed8 48%, #1e3a8a 100%)',
@@ -263,6 +291,51 @@ function unitCardTheme(hospitalId: string): UnitCardTheme {
   };
 }
 
+const CC_ONLY_UNIT_KEYS = new Set(['DF_AGUAS_CLARAS', 'ES_BRESSAN', 'MG_FUNCIONARIOS']);
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const raw = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(raw)) return null;
+  return {
+    r: Number.parseInt(raw.slice(0, 2), 16),
+    g: Number.parseInt(raw.slice(2, 4), 16),
+    b: Number.parseInt(raw.slice(4, 6), 16),
+  };
+}
+
+function rgbToHue(r: number, g: number, b: number): number {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const d = max - min;
+  if (d === 0) return 0;
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d) % 6;
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  const deg = h * 60;
+  return deg < 0 ? deg + 360 : deg;
+}
+
+function accentImageFilter(accentHex: string): string {
+  const rgb = hexToRgb(accentHex);
+  if (!rgb) return 'grayscale(1) brightness(1.05) contrast(1.02)';
+  const targetHue = rgbToHue(rgb.r, rgb.g, rgb.b);
+  const baseHue = 255;
+  const rotate = Math.round(targetHue - baseHue);
+  return `grayscale(1) sepia(0.25) hue-rotate(${rotate}deg) saturate(2.2) brightness(1.02) contrast(1.05)`;
+}
+
+function unitAreaTags(unitId: string, hasCc: boolean): string[] {
+  const key = canonicalUnitKey(unitId);
+  if (CC_ONLY_UNIT_KEYS.has(key)) return hasCc ? ['CC'] : [];
+  const tags = ['PS'];
+  if (hasCc) tags.push('CC');
+  return tags;
+}
+
 /** Título mais limpo no card (sem “UF -” inicial nem sufixo “- PS”; remove prefixo “MG BH ”). */
 function formatUnitCardTitle(label: string): string {
   let s = label.trim();
@@ -290,7 +363,7 @@ const vhUnitItemVariants = {
   },
 } as const;
 
-export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarProps) {
+export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl, ccApiUrl }: VisaoHospitalarProps) {
   const [mode, setMode] = useState<'units' | 'building' | 'floor'>('units');
   const [hospitals, setHospitals] = useState<UnitOption[]>([]);
   const [unitsLoading, setUnitsLoading] = useState(true);
@@ -301,6 +374,61 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
   const [selectedFloorId, setSelectedFloorId] = useState<string>('');
   const [psStats, setPsStats] = useState<StageStat[]>([]);
   const [psTotalActive, setPsTotalActive] = useState(0);
+  const [ccCenterUnitKeys, setCcCenterUnitKeys] = useState<Set<string>>(new Set());
+  const [ccRooms, setCcRooms] = useState<CcRoom[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${ccApiUrl}/api/cc/units`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        const units = Array.isArray(json?.units) ? json.units : [];
+        const keys = new Set<string>();
+        for (const unit of units) {
+          if (!unit?.hasCenter) continue;
+          const key = canonicalUnitKey(String(unit.unitKey || unit.unitLabel || ''));
+          if (key) keys.add(key);
+        }
+        setCcCenterUnitKeys(keys);
+      })
+      .catch(() => {
+        if (!cancelled) setCcCenterUnitKeys(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ccApiUrl]);
+
+  useEffect(() => {
+    if (!selectedHospital) return;
+    const unitKey = canonicalUnitKey(selectedHospital);
+    if (!ccCenterUnitKeys.has(unitKey)) {
+      setCcRooms([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${ccApiUrl}/api/cc/rooms?unit=${encodeURIComponent(selectedHospital)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return;
+        const rooms = Array.isArray(json?.rooms) ? json.rooms : [];
+        setCcRooms(
+          rooms.map((room: any) => ({
+            roomName: String(room?.roomName || 'SEM_SALA'),
+            inRoomCount: Number(room?.inRoomCount || 0),
+            waitingCount: Number(room?.waitingCount || 0),
+            completedCount: Number(room?.completedCount || 0),
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setCcRooms([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ccApiUrl, selectedHospital, ccCenterUnitKeys]);
 
   useEffect(() => {
     let cancelled = false;
@@ -378,6 +506,11 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
 
   useEffect(() => {
     if (!selectedHospital) return;
+    if (CC_ONLY_UNIT_KEYS.has(canonicalUnitKey(selectedHospital))) {
+      setPsTotalActive(0);
+      setPsStats(STAGE_ORDER.map((key) => ({ key, label: STAGE_LABELS[key], count: 0, pct: 0 })));
+      return;
+    }
     if (jornadaUnavailable) {
       setPsTotalActive(0);
       setPsStats(STAGE_ORDER.map((key) => ({ key, label: STAGE_LABELS[key], count: 0, pct: 0 })));
@@ -460,91 +593,139 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
   const floors = useMemo<FloorModel[]>(() => {
     const models: FloorModel[] = [];
     const unitSlug = toSlug(selectedHospital || 'unit');
+    const selectedUnitKey = canonicalUnitKey(selectedHospital || '');
+    const isCcOnlyUnit = CC_ONLY_UNIT_KEYS.has(selectedUnitKey);
+    const hasCc = ccCenterUnitKeys.has(selectedUnitKey);
 
-    const psOccupied = psTotalActive;
-    const psTotal = Math.max(1, psTotalActive);
-    models.push({
-      id: `${unitSlug}_ps_f1`,
-      label: '1º Andar - Pronto Socorro',
-      kind: 'PS',
-      occupied: psOccupied,
-      total: psTotal,
-      pct: psTotal > 0 ? Math.min(100, Math.round((psOccupied / psTotal) * 100)) : 0,
-      beds: [],
-    });
+    if (!isCcOnlyUnit) {
+      const psOccupied = psTotalActive;
+      const psTotal = Math.max(1, psTotalActive);
+      models.push({
+        id: `${unitSlug}_ps_f1`,
+        label: '1º Andar - Pronto Socorro',
+        kind: 'PS',
+        occupied: psOccupied,
+        total: psTotal,
+        pct: psTotal > 0 ? Math.min(100, Math.round((psOccupied / psTotal) * 100)) : 0,
+        beds: [],
+      });
+    }
 
-    if (!censoData) return models;
+    if (!censoData) {
+      if (hasCc) {
+        const ccTotal = ccRooms.length;
+        const ccOccupied = ccRooms.filter((r) => r.inRoomCount > 0).length;
+        const ccFloorNo = isCcOnlyUnit ? 1 : 2;
+        models.push({
+          id: `${unitSlug}_cc_f${ccFloorNo}`,
+          label: `${ccFloorNo}º Andar - Centro Cirurgico`,
+          kind: 'CC',
+          occupied: ccOccupied,
+          total: Math.max(1, ccTotal),
+          pct: ccTotal > 0 ? Math.round((ccOccupied / ccTotal) * 100) : 0,
+          beds: [],
+          ccRooms,
+        });
+      }
+      return models;
+    }
 
-    const floorKeys = Object.keys(censoData).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    const grouped = new Map<
-      number,
-      {
-        names: string[];
+    if (!isCcOnlyUnit) {
+      const floorKeys = Object.keys(censoData).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+      );
+      const grouped = new Map<
+        number,
+        {
+          names: string[];
+          kind: FloorKind;
+          sectors: Array<{ name: string; occupied: number; total: number; beds: Bed[] }>;
+        }
+      >();
+      const deferred: Array<{
+        sourceName: string;
         kind: FloorKind;
         sectors: Array<{ name: string; occupied: number; total: number; beds: Bed[] }>;
+      }> = [];
+
+      for (const floorKey of floorKeys) {
+        const floorData = censoData[floorKey] || {};
+        const sectors: Array<{ name: string; occupied: number; total: number; beds: Bed[] }> = [];
+
+        for (const [sectorName, areaData] of Object.entries(floorData)) {
+          const beds = flattenBeds(areaData);
+          if (beds.length === 0) continue;
+          const occupied = beds.filter(isBedOccupied).length;
+          sectors.push({ name: normalizeSectorName(sectorName), occupied, total: beds.length, beds });
+        }
+
+        if (sectors.length === 0) continue;
+        const bedsAll = sectors.flatMap((s) => s.beds);
+        const kind = classifyFloor(floorKey, bedsAll);
+        const floorNo = extractFloorNumber(floorKey);
+
+        if (floorNo && floorNo > 1) {
+          const current = grouped.get(floorNo) || { names: [], kind, sectors: [] as typeof sectors };
+          current.names.push(floorKey);
+          current.sectors.push(...sectors);
+          if (current.kind !== 'UTI_UPC' && kind === 'UTI_UPC') current.kind = 'UTI_UPC';
+          grouped.set(floorNo, current);
+        } else {
+          deferred.push({ sourceName: floorKey, kind, sectors });
+        }
       }
-    >();
-    const deferred: Array<{
-      sourceName: string;
-      kind: FloorKind;
-      sectors: Array<{ name: string; occupied: number; total: number; beds: Bed[] }>;
-    }> = [];
 
-    for (const floorKey of floorKeys) {
-      const floorData = censoData[floorKey] || {};
-      const sectors: Array<{ name: string; occupied: number; total: number; beds: Bed[] }> = [];
-
-      for (const [sectorName, areaData] of Object.entries(floorData)) {
-        const beds = flattenBeds(areaData);
-        if (beds.length === 0) continue;
-        const occupied = beds.filter(isBedOccupied).length;
-        sectors.push({ name: normalizeSectorName(sectorName), occupied, total: beds.length, beds });
+      let nextFloor = Math.max(1, ...Array.from(grouped.keys())) + 1;
+      for (const item of deferred) {
+        while (grouped.has(nextFloor)) nextFloor += 1;
+        grouped.set(nextFloor, { names: [item.sourceName], kind: item.kind, sectors: item.sectors });
+        nextFloor += 1;
       }
 
-      if (sectors.length === 0) continue;
-      const bedsAll = sectors.flatMap((s) => s.beds);
-      const kind = classifyFloor(floorKey, bedsAll);
-      const floorNo = extractFloorNumber(floorKey);
-
-      if (floorNo && floorNo > 1) {
-        const current = grouped.get(floorNo) || { names: [], kind, sectors: [] as typeof sectors };
-        current.names.push(floorKey);
-        current.sectors.push(...sectors);
-        if (current.kind !== 'UTI_UPC' && kind === 'UTI_UPC') current.kind = 'UTI_UPC';
-        grouped.set(floorNo, current);
-      } else {
-        deferred.push({ sourceName: floorKey, kind, sectors });
+      for (const [floorNo, item] of Array.from(grouped.entries()).sort((a, b) => a[0] - b[0])) {
+        const beds = item.sectors.flatMap((s) => s.beds);
+        const total = beds.length;
+        if (total === 0) continue;
+        const occupied = item.sectors.reduce((sum, s) => sum + s.occupied, 0);
+        const pct = Math.round((occupied / total) * 100);
+        const mainName = item.kind === 'UTI_UPC' ? 'UTI / UPC' : 'Internacao';
+        models.push({
+          id: `${unitSlug}_${toSlug(item.names.join('_'))}_f${floorNo}`,
+          label: `${floorNo}º Andar - ${mainName}`,
+          kind: item.kind,
+          occupied,
+          total,
+          pct,
+          beds,
+          sectors: item.sectors,
+        });
       }
     }
 
-    let nextFloor = Math.max(1, ...Array.from(grouped.keys())) + 1;
-    for (const item of deferred) {
-      while (grouped.has(nextFloor)) nextFloor += 1;
-      grouped.set(nextFloor, { names: [item.sourceName], kind: item.kind, sectors: item.sectors });
-      nextFloor += 1;
-    }
-
-    for (const [floorNo, item] of Array.from(grouped.entries()).sort((a, b) => a[0] - b[0])) {
-      const beds = item.sectors.flatMap((s) => s.beds);
-      const total = beds.length;
-      if (total === 0) continue;
-      const occupied = item.sectors.reduce((sum, s) => sum + s.occupied, 0);
-      const pct = Math.round((occupied / total) * 100);
-      const mainName = item.kind === 'UTI_UPC' ? 'UTI / UPC' : 'Internacao';
+    if (hasCc) {
+      const ccTotal = ccRooms.length;
+      const ccOccupied = ccRooms.filter((r) => r.inRoomCount > 0).length;
+      const maxExistingFloorNo = models.reduce((maxNo, floor) => {
+        const m = floor.id.match(/_f(\d+)$/);
+        if (!m?.[1]) return maxNo;
+        const n = Number(m[1]);
+        return Number.isFinite(n) ? Math.max(maxNo, n) : maxNo;
+      }, isCcOnlyUnit ? 0 : 1);
+      const ccFloorNo = isCcOnlyUnit ? 1 : maxExistingFloorNo + 1;
       models.push({
-        id: `${unitSlug}_${toSlug(item.names.join('_'))}_f${floorNo}`,
-        label: `${floorNo}º Andar - ${mainName}`,
-        kind: item.kind,
-        occupied,
-        total,
-        pct,
-        beds,
-        sectors: item.sectors,
+        id: `${unitSlug}_cc_f${ccFloorNo}`,
+        label: `${ccFloorNo}º Andar - Centro Cirurgico`,
+        kind: 'CC',
+        occupied: ccOccupied,
+        total: Math.max(1, ccTotal),
+        pct: ccTotal > 0 ? Math.round((ccOccupied / ccTotal) * 100) : 0,
+        beds: [],
+        ccRooms,
       });
     }
 
     return models;
-  }, [censoData, psTotalActive, selectedHospital]);
+  }, [censoData, psTotalActive, selectedHospital, ccCenterUnitKeys, ccRooms]);
 
   const selectedFloor = useMemo(
     () => floors.find((f) => f.id === selectedFloorId) || null,
@@ -592,6 +773,8 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                 >
                   {hospitals.map((u, index) => {
                     const theme = unitCardTheme(u.id);
+                    const hasCc = ccCenterUnitKeys.has(canonicalUnitKey(u.id));
+                    const tags = unitAreaTags(u.id, hasCc);
                     return (
                       <motion.button
                         key={u.id}
@@ -619,10 +802,42 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                           alt=""
                           loading="lazy"
                           draggable={false}
+                          style={{
+                            filter: `${accentImageFilter(theme.accent)} drop-shadow(0 0 14px ${theme.accent}66)`,
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: 'inherit',
+                            background: theme.accent,
+                            opacity: 0.55,
+                            mixBlendMode: 'color',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: 'inherit',
+                            background: (() => {
+                              const rgb = hexToRgb(theme.accent);
+                              if (!rgb) return 'transparent';
+                              return `radial-gradient(circle at 25% 20%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.28), rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.08) 55%, transparent 100%)`;
+                            })(),
+                            pointerEvents: 'none',
+                          }}
                         />
                         <div className="vh-unit-photo-glass" />
                       </div>
                       <span className="vh-unit-card-title">{formatUnitCardTitle(u.label)}</span>
+                      {tags.length > 0 ? (
+                        <small style={{ color: '#facc15', fontWeight: 800, letterSpacing: '0.08em' }}>
+                          {tags.join(' / ')}
+                        </small>
+                      ) : null}
                       </motion.button>
                     );
                   })}
@@ -707,7 +922,7 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                             </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11px', color: isSelected ? '#aee6ff' : '#6b8a9e' }}>
-                            <span>{f.kind === 'PS' ? 'Pronto Socorro' : f.kind === 'UTI_UPC' ? 'UTI/UPC' : 'Internação'}</span>
+                            <span>{f.kind === 'PS' ? 'Pronto Socorro' : f.kind === 'CC' ? 'Centro Cirurgico' : f.kind === 'UTI_UPC' ? 'UTI/UPC' : 'Internação'}</span>
                             <span style={{ fontWeight: '600' }}>{f.kind === 'PS' ? `${f.occupied} ativos` : `${f.occupied}/${f.total}`}</span>
                           </div>
                         </button>
@@ -803,6 +1018,11 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                           }))}
                         />
                       </div>
+                    ) : selectedFloor && selectedFloor.kind === 'CC' ? (
+                      <CCFloorView3D
+                        floorName={selectedFloor.label}
+                        rooms={selectedFloor.ccRooms || []}
+                      />
                     ) : selectedFloor ? (
                       <div className="vh-bed-detail">
                         <div className="vh-floor-summary">
@@ -872,5 +1092,8 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
     </div>
   );
 }
+
+
+
 
 
