@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { RoomBoard, RoomsResponse, UnitsResponse } from './ccTypes';
 import { clinicalOutcomeLabelPt, inferClinicalOutcome } from './clinicalOutcome';
-import { buildDemoRooms, buildDemoUnitsResponse, DEMO_UNIT_KEY, isCcDemoMode } from './demo/liveSimulation';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || 'http://localhost:3213';
 
@@ -39,11 +38,8 @@ function colorForUnit(unitKey: string, index: number) {
 }
 
 export function App() {
-  const [demoActive] = useState(() => isCcDemoMode());
-  const [demoTick, setDemoTick] = useState(0);
-
   const [units, setUnits] = useState<UnitsResponse['units']>([]);
-  const [selectedUnit, setSelectedUnit] = useState<string>(() => (isCcDemoMode() ? DEMO_UNIT_KEY : ''));
+  const [selectedUnit, setSelectedUnit] = useState<string>('');
   const [rooms, setRooms] = useState<RoomBoard[]>([]);
   const [pulseRooms, setPulseRooms] = useState<Record<string, number>>({});
   const previousRoomPatientRef = useRef<Record<string, string>>({});
@@ -82,7 +78,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (demoActive) return;
     let disposed = false;
 
     async function fetchUnits() {
@@ -119,31 +114,7 @@ export function App() {
       clearInterval(timer);
       if (ws) ws.close();
     };
-  }, [demoActive, selectedUnit]);
-
-  useEffect(() => {
-    if (!demoActive) return;
-    const id = window.setInterval(() => setDemoTick((n) => n + 1), 4500);
-    return () => clearInterval(id);
-  }, [demoActive]);
-
-  useEffect(() => {
-    if (!demoActive) return;
-    const u = buildDemoUnitsResponse(demoTick);
-    setUnits(u.units);
-  }, [demoActive, demoTick]);
-
-  useEffect(() => {
-    if (!demoActive) return;
-    if (selectedUnit !== DEMO_UNIT_KEY) return;
-    const raw = buildDemoRooms(selectedUnit, demoTick);
-    const nextRooms = raw.map((r) => ({
-      ...r,
-      completedPatients: r.completedPatients ?? [],
-      completedCount: r.completedCount ?? 0,
-    }));
-    ingestRooms(nextRooms);
-  }, [demoActive, selectedUnit, demoTick, ingestRooms]);
+  }, [selectedUnit]);
 
   const visibleUnits = useMemo(() => units.filter((unit) => unit.hasCenter), [units]);
   const selectedSummary = useMemo(() => visibleUnits.find((u) => u.unitKey === selectedUnit) || null, [selectedUnit, visibleUnits]);
@@ -162,8 +133,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (demoActive) return;
-    if (selectedUnit === DEMO_UNIT_KEY) return;
     let disposed = false;
     if (!selectedUnit) {
       setRooms([]);
@@ -188,7 +157,7 @@ export function App() {
       disposed = true;
       clearInterval(timer);
     };
-  }, [demoActive, selectedUnit, ingestRooms]);
+  }, [selectedUnit, ingestRooms]);
 
   return (
     <div className="cc-page">
@@ -274,6 +243,12 @@ export function App() {
                       transition={{ duration: 0.45, ease: 'easeOut' }}
                     >
                       <h3>{room.currentPatient.patientName}</h3>
+                      {room.currentPatient.procedureName ? (
+                        <small className="cc-highlight-meta">Procedimento: {room.currentPatient.procedureName}</small>
+                      ) : null}
+                      {room.currentPatient.doctorName ? (
+                        <small className="cc-highlight-meta">Médico: {room.currentPatient.doctorName}</small>
+                      ) : null}
                       <small>{room.currentPatient.lastEvent}</small>
                       <small>
                         Entrada na sala:{' '}
@@ -316,6 +291,8 @@ export function App() {
                         transition={{ duration: 0.25 }}
                       >
                         <h4>{patient.patientName}</h4>
+                        {patient.procedureName ? <small className="cc-highlight-meta">Procedimento: {patient.procedureName}</small> : null}
+                        {patient.doctorName ? <small className="cc-highlight-meta">Médico: {patient.doctorName}</small> : null}
                         <small>{patient.lastEvent}</small>
                       </motion.article>
                     ))}
@@ -345,6 +322,8 @@ export function App() {
                           transition={{ duration: 0.25 }}
                         >
                           <h4>{patient.patientName}</h4>
+                          {patient.procedureName ? <small className="cc-highlight-meta">Procedimento: {patient.procedureName}</small> : null}
+                          {patient.doctorName ? <small className="cc-highlight-meta">Médico: {patient.doctorName}</small> : null}
                           {outcome ? (
                             <small className="cc-outcome-desfecho">{clinicalOutcomeLabelPt(outcome)}</small>
                           ) : null}

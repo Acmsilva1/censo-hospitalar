@@ -14,6 +14,8 @@ type CcSurgery = {
   unitLabel: string;
   roomName: string;
   patientName: string;
+  procedureName: string | null;
+  doctorName: string | null;
   statusAgenda: string;
   lastEvent: string;
   lastEventAt: string | null;
@@ -67,10 +69,10 @@ app.register(websocket);
 const CC_API_ROOT = path.resolve(__dirname, '..');
 /** Raiz do monorepo (`censo-hospitalar`). */
 const REPO_ROOT = path.resolve(CC_API_ROOT, '..', '..', '..');
-const REFRESH_MS = Number(process.env.CC_REFRESH_MS || 10 * 60 * 1000);
+const ORCHESTRATOR_SYNC_INTERVAL_SECONDS = Number(process.env.ORCHESTRATOR_SYNC_INTERVAL_SECONDS || 600);
+const REFRESH_MS = ORCHESTRATOR_SYNC_INTERVAL_SECONDS * 1000;
 const API_PORT = Number(process.env.CC_API_PORT || process.env.PORT || 3213);
-const SIMULATE_TODAY = String(process.env.CC_SIMULATE_TODAY || 'true').toLowerCase() !== 'false';
-const CC_DAY_SCOPE = (process.env.CC_DAY_SCOPE || 'per_unit').toLowerCase() === 'global' ? 'global' : 'per_unit';
+const CC_DAY_SCOPE = (process.env.CC_DAY_SCOPE || 'global').toLowerCase() === 'global' ? 'global' : 'per_unit';
 const CC_TREAT_UNKNOWN_AS_WAITING =
   String(process.env.CC_TREAT_UNKNOWN_AS_WAITING || 'false').toLowerCase() === 'true';
 
@@ -537,6 +539,7 @@ function resolveDataDir() {
   return candidates[0];
 }
 
+
 function quoteSqlPath(filePath: string) {
   return path.resolve(filePath).replace(/\\/g, '/').replace(/'/g, "''");
 }
@@ -575,10 +578,6 @@ function parseMovTimestamp(raw: unknown): string | null {
   }
 }
 
-function startOfUtcDay(input: Date) {
-  return Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate());
-}
-
 /** Chave YYYY-MM-DD em UTC para comparar “dia do evento” com o último dia da tabela. */
 function utcDayKeyFromIso(iso: string): string {
   const d = new Date(iso);
@@ -597,37 +596,6 @@ function shiftUtcDayKey(day: string | null, deltaDays: number): string | null {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() + deltaDays);
   return utcDayKeyFromIso(dt.toISOString());
-}
-
-function shiftIsoByMs(iso: string | null, deltaMs: number): string | null {
-  if (!iso || deltaMs === 0) return iso;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return iso;
-  return new Date(t + deltaMs).toISOString();
-}
-
-/** Desloca timestamps só para exibição: alinha o último dia dos dados ao “hoje” do calendário local do servidor. */
-function withSimulatedToday(surgeries: CcSurgery[]) {
-  if (!SIMULATE_TODAY) return surgeries;
-  const times = surgeries.map((s) => s.lastEventAt).filter(Boolean) as string[];
-  if (times.length === 0) return surgeries;
-
-  const maxEvent = new Date(times.reduce((a, b) => (a > b ? a : b)));
-  const now = new Date();
-  const deltaMs = startOfUtcDay(now) - startOfUtcDay(maxEvent);
-  if (deltaMs === 0) return surgeries;
-
-  return surgeries.map((surgery) => {
-    if (!surgery.lastEventAt) return surgery;
-    const shifted = new Date(new Date(surgery.lastEventAt).getTime() + deltaMs).toISOString();
-    return {
-      ...surgery,
-      lastEventAt: shifted,
-      enteredRoomAt: shiftIsoByMs(surgery.enteredRoomAt, deltaMs),
-      surgeryEndedAt: shiftIsoByMs(surgery.surgeryEndedAt, deltaMs),
-      leftRoomAt: shiftIsoByMs(surgery.leftRoomAt, deltaMs),
-    };
-  });
 }
 
 function rowToJson(row: Record<string, unknown>) {
@@ -670,6 +638,8 @@ async function buildSnapshot() {
     UNIDADE: string | null;
     DS_AGENDA: string | null;
     NM_PACIENTE: string | null;
+    DS_PROCEDIMENTO: string | null;
+    MEDICO: string | null;
     STATUS_AGENDA: string | null;
     DS_EVENTO: string | null;
     DT_EVENTO: string | Date | null;
@@ -755,6 +725,8 @@ async function buildSnapshot() {
           UNIDADE,
           DS_AGENDA,
           NM_PACIENTE,
+          DS_PROCEDIMENTO,
+          MEDICO,
           STATUS_AGENDA,
           row_number() OVER (
             PARTITION BY NR_CIRURGIA
@@ -771,6 +743,8 @@ async function buildSnapshot() {
       b.UNIDADE,
       b.DS_AGENDA,
       b.NM_PACIENTE,
+      b.DS_PROCEDIMENTO,
+      b.MEDICO,
       b.STATUS_AGENDA,
       le.DS_EVENTO,
       le.DT_EVENTO,
@@ -800,6 +774,12 @@ async function buildSnapshot() {
         unitLabel,
         roomName: roomLabelFromRaw(String(row.DS_AGENDA || 'SEM_SALA')),
         patientName: String(row.NM_PACIENTE || 'Sem paciente'),
+        procedureName:
+          row.DS_PROCEDIMENTO != null && String(row.DS_PROCEDIMENTO).trim() !== ''
+            ? String(row.DS_PROCEDIMENTO)
+            : null,
+        doctorName:
+          row.MEDICO != null && String(row.MEDICO).trim() !== '' ? String(row.MEDICO) : null,
         statusAgenda: String(row.STATUS_AGENDA || 'Sem status'),
         lastEvent: String(row.DS_EVENTO || 'Sem evento'),
         lastEventAt,
@@ -814,17 +794,14 @@ async function buildSnapshot() {
 
   const historicalUnits = new Set(allSurgeries.map((s) => s.unitKey));
 
-  const maxMovRows = await queryRows<{ MX: string | Date | null }>(`
-    SELECT MAX(try_cast(DT_REGISTRO AS timestamp)) AS MX
-    FROM read_parquet('${movPath}')
-  `);
   let referenceDay: string | null = null;
-  const mxRaw = maxMovRows[0]?.MX;
-  if (mxRaw != null && String(mxRaw).trim() !== '') {
-    const refAnchor = new Date(String(mxRaw));
-    if (!Number.isNaN(refAnchor.getTime())) {
-      referenceDay = utcDayKeyFromIso(refAnchor.toISOString());
-    }
+  const joinedTimes = allSurgeries
+    .map((s) => s.lastEventAt)
+    .filter((v): v is string => v != null && v !== '');
+  const joinedMaxIso =
+    joinedTimes.length > 0 ? joinedTimes.reduce((a, b) => (a > b ? a : b)) : null;
+  if (joinedMaxIso) {
+    referenceDay = utcDayKeyFromIso(joinedMaxIso);
   }
 
   const lakeMaxDayUtc = referenceDay;
@@ -877,7 +854,7 @@ async function buildSnapshot() {
           return d != null && utcDayKeyFromIso(s.lastEventAt) === d;
         });
 
-  const surgeries = withSimulatedToday(daySurgeries);
+  const surgeries = daySurgeries;
   const active = surgeries.filter((s) => s.state !== 'FORA_FLUXO_ATIVO');
 
   const unitMap = new Map<string, CcUnitSummary>();
@@ -1101,6 +1078,8 @@ function patientPayload(s: CcSurgery) {
   return {
     nrCirurgia: s.nrCirurgia,
     patientName: s.patientName,
+    procedureName: s.procedureName,
+    doctorName: s.doctorName,
     lastEvent: s.lastEvent,
     lastEventAt: s.lastEventAt,
     roomEnteredAt: s.enteredRoomAt ?? null,
@@ -1113,6 +1092,8 @@ function completedPatientPayload(s: CcSurgery) {
   const base = {
     nrCirurgia: s.nrCirurgia,
     patientName: s.patientName,
+    procedureName: s.procedureName,
+    doctorName: s.doctorName,
     lastEventAt: s.lastEventAt ?? null,
     surgeryEndedAt: s.surgeryEndedAt ?? null,
     roomLeftAt: s.leftRoomAt ?? null,

@@ -26,6 +26,8 @@ export type ClinicalOutcome = 'ALTA' | 'INTERNACAO' | 'OBITO';
 export type RoomPatient = {
   nrCirurgia: string;
   patientName: string;
+  procedureName?: string | null;
+  doctorName?: string | null;
   /** Opcional nos encerrados (API omite o texto bruto do evento). */
   lastEvent?: string;
   lastEventAt: string | null;
