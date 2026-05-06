@@ -199,53 +199,68 @@ function displayUnitName(raw: string) {
 
 function canonicalUnitKey(raw: string) {
   const t = normalizeText(raw);
-  if (t.includes('PS VV') || t.includes('PS VILA VELHA') || t.includes('VILA VELHA')) return 'ES_PS_VV';
-  if (t.includes('HOSPITAL VITORIA') || (t.includes('PS') && t.includes('VITORIA'))) return 'ES_HOSPITAL_VITORIA';
-  if (t.includes('PS BOTAFOGO')) return 'RJ_PS_BOTAFOGO';
-  if (t.includes('PS CAMPO GRANDE')) return 'RJ_PS_CAMPO_GRANDE';
-  if (t.includes('PS BARRA DA TIJUCA')) return 'RJ_PS_BARRA_DA_TIJUCA';
-  if (t.includes('PS SIG')) return 'DF_PS_SIG';
-  if (t.includes('PS TAGUATINGA')) return 'DF_PS_TAGUATINGA';
+  if (t.includes('VV') || t.includes('VILA VELHA')) return 'ES_PS_VV';
+  if (t.includes('VITORIA')) return 'ES_HOSPITAL_VITORIA';
+  if (t.includes('BOTAFOGO')) return 'RJ_PS_BOTAFOGO';
+  if (t.includes('CAMPO GRANDE')) return 'RJ_PS_CAMPO_GRANDE';
+  if (t.includes('BARRA DA TIJUCA')) return 'RJ_PS_BARRA_DA_TIJUCA';
+  if (t.includes('TAGUATINGA')) return 'DF_PS_TAGUATINGA';
+  if (t.includes('SIG')) return 'DF_PS_SIG';
   if (t.includes('GUTIERREZ')) return 'MG_GUTIERREZ';
   if (t.includes('PAMPULHA')) return 'MG_PAMPULHA';
   return t;
 }
 
-/** Matiz base por UF — todas as unidades do mesmo estado ficam na mesma família de cor (nenhum “só amarelo”). */
-const UF_HUE: Record<string, number> = {
-  ES: 188,
-  RJ: 218,
-  DF: 154,
-  MG: 278,
-  SP: 200,
-  GO: 38,
-  BA: 24,
-  PR: 152,
+type UnitCardTheme = {
+  background: string;
+  accent: string;
 };
 
-function hueDriftFromKey(key: string): number {
-  let n = 0;
-  for (let i = 0; i < key.length; i++) n += key.charCodeAt(i);
-  return (n % 22) - 11;
-}
+const UNIT_CARD_THEME: Record<string, UnitCardTheme> = {
+  DF_PS_SIG: {
+    background: 'linear-gradient(160deg, #16a34a 0%, #15803d 45%, #14532d 100%)',
+    accent: '#4ade80',
+  },
+  DF_PS_TAGUATINGA: {
+    background: 'linear-gradient(160deg, #0f766e 0%, #0e7490 48%, #155e75 100%)',
+    accent: '#5eead4',
+  },
+  ES_HOSPITAL_VITORIA: {
+    background: 'linear-gradient(160deg, #0ea5e9 0%, #0284c7 45%, #075985 100%)',
+    accent: '#7dd3fc',
+  },
+  ES_PS_VV: {
+    background: 'linear-gradient(160deg, #2563eb 0%, #1d4ed8 48%, #1e3a8a 100%)',
+    accent: '#93c5fd',
+  },
+  MG_GUTIERREZ: {
+    background: 'linear-gradient(160deg, #7e22ce 0%, #9333ea 50%, #581c87 100%)',
+    accent: '#d8b4fe',
+  },
+  MG_PAMPULHA: {
+    background: 'linear-gradient(160deg, #be185d 0%, #a21caf 50%, #701a75 100%)',
+    accent: '#f9a8d4',
+  },
+  RJ_PS_BARRA_DA_TIJUCA: {
+    background: 'linear-gradient(160deg, #ea580c 0%, #c2410c 48%, #7c2d12 100%)',
+    accent: '#fdba74',
+  },
+  RJ_PS_BOTAFOGO: {
+    background: 'linear-gradient(160deg, #1d4ed8 0%, #1e40af 45%, #172554 100%)',
+    accent: '#bfdbfe',
+  },
+  RJ_PS_CAMPO_GRANDE: {
+    background: 'linear-gradient(160deg, #dc2626 0%, #b91c1c 50%, #7f1d1d 100%)',
+    accent: '#fca5a5',
+  },
+};
 
-function extractUfFromLabel(label: string): string {
-  const byDash = label.match(/^\s*([A-Z]{2})\s*-/i);
-  if (byDash?.[1]) return byDash[1].toUpperCase();
-  const bySpace = label.match(/^\s*([A-Z]{2})\s+[A-Za-z]/i);
-  if (bySpace?.[1]) return bySpace[1].toUpperCase();
-  return 'BR';
-}
-
-/** Gradiente HSL coerente: UF + pequeno desvio por `canonicalUnitKey` (ex.: Gutierrez vs Pampulha). */
-function unitCardGradient(hospitalId: string): string {
-  const label = displayUnitName(hospitalId);
-  const uf = extractUfFromLabel(label);
-  const base = UF_HUE[uf] ?? 206;
-  const drift = hueDriftFromKey(canonicalUnitKey(hospitalId));
-  const h1 = (base + drift + 360) % 360;
-  const h2 = (h1 + 16 + (drift % 5)) % 360;
-  return `linear-gradient(152deg, hsl(${h1} 76% 56%) 0%, hsl(${h2} 74% 38%) 48%, hsl(${h2} 68% 22%) 100%)`;
+function unitCardTheme(hospitalId: string): UnitCardTheme {
+  const key = canonicalUnitKey(hospitalId);
+  return UNIT_CARD_THEME[key] || {
+    background: 'linear-gradient(160deg, #0a3652 0%, #08283f 52%, #061e31 100%)',
+    accent: '#8fdfff',
+  };
 }
 
 /** Título mais limpo no card (sem “UF -” inicial nem sufixo “- PS”; remove prefixo “MG BH ”). */
@@ -256,68 +271,6 @@ function formatUnitCardTitle(label: string): string {
   s = s.replace(/^MG\s+BH\s+/i, '');
   s = s.replace(/\s+/g, ' ').trim();
   return s || label.trim();
-}
-
-function MiniHospital3D({ hospitalId, index }: { hospitalId: string; index: number }) {
-  const key = canonicalUnitKey(hospitalId);
-  let seed = 0;
-  for (let i = 0; i < key.length; i++) seed += key.charCodeAt(i);
-  seed += index * 31;
-  const bodyHue = (190 + (seed % 70)) % 360;
-  const sideHue = (bodyHue + 8) % 360;
-  const roofHue = (bodyHue - 12 + 360) % 360;
-  const winGlow = seed % 2 === 0 ? '#bff7ff' : '#d6f8ff';
-  return (
-    <svg viewBox="0 0 240 140" className="vh-mini-hospital-3d" aria-hidden focusable="false">
-      <defs>
-        <linearGradient id={`vhRoof_${seed}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={`hsl(${roofHue} 58% 62%)`} />
-          <stop offset="100%" stopColor={`hsl(${roofHue} 62% 38%)`} />
-        </linearGradient>
-        <linearGradient id={`vhFront_${seed}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={`hsl(${bodyHue} 58% 66%)`} />
-          <stop offset="100%" stopColor={`hsl(${bodyHue} 55% 42%)`} />
-        </linearGradient>
-        <linearGradient id={`vhSide_${seed}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={`hsl(${sideHue} 52% 52%)`} />
-          <stop offset="100%" stopColor={`hsl(${sideHue} 50% 34%)`} />
-        </linearGradient>
-        <linearGradient id={`vhBase_${seed}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={`hsl(${sideHue} 34% 28%)`} />
-          <stop offset="100%" stopColor={`hsl(${sideHue} 36% 16%)`} />
-        </linearGradient>
-      </defs>
-      <ellipse cx="124" cy="124" rx="86" ry="10.5" fill="rgba(5,14,25,0.38)" />
-      <polygon points="72,44 144,20 196,42 124,66" fill={`url(#vhRoof_${seed})`} />
-      <polygon points="72,44 124,66 124,108 72,86" fill={`url(#vhSide_${seed})`} />
-      <polygon points="124,66 196,42 196,86 124,108" fill={`url(#vhFront_${seed})`} />
-      <polygon points="66,87 124,108 124,114 66,94" fill={`url(#vhBase_${seed})`} />
-      <polygon points="124,108 204,84 204,90 124,114" fill={`url(#vhBase_${seed})`} />
-      <polygon points="108,49 126,43 140,49 122,56" fill="rgba(255,255,255,0.6)" />
-      <polygon points="122,56 140,49 140,66 122,72" fill="rgba(255,255,255,0.42)" />
-      <polygon points="108,49 122,56 122,72 108,65" fill="rgba(255,255,255,0.3)" />
-      <rect x="118.5" y="47.5" width="7" height="18" rx="1.4" fill="rgba(255,255,255,0.7)" />
-      <rect x="113" y="53.5" width="18" height="6" rx="1.4" fill="rgba(255,255,255,0.7)" />
-      {Array.from({ length: 3 }).map((_, r) =>
-        Array.from({ length: 4 }).map((__, c) => {
-          const x = 132 + c * 14;
-          const y = 70 + r * 11;
-          return <rect key={`f-${r}-${c}`} x={x} y={y} width="8.5" height="7" rx="1.2" fill={winGlow} opacity="0.82" />;
-        })
-      )}
-      {Array.from({ length: 2 }).map((_, r) =>
-        Array.from({ length: 2 }).map((__, c) => {
-          const x = 86 + c * 14;
-          const y = 72 + r * 11;
-          return <rect key={`s-${r}-${c}`} x={x} y={y} width="7.5" height="6.6" rx="1.2" fill={winGlow} opacity="0.65" />;
-        })
-      )}
-      <polygon points="154,108 170,103 170,84 154,89" fill="rgba(14,24,40,0.6)" />
-      <polygon points="154,89 170,84 179,89 163,94" fill="rgba(255,255,255,0.2)" />
-      <path d="M124 66L196 42" stroke="rgba(255,255,255,0.2)" strokeWidth="1.1" />
-      <path d="M72 44L124 66" stroke="rgba(255,255,255,0.16)" strokeWidth="1.1" />
-    </svg>
-  );
 }
 
 const vhUnitListVariants = {
@@ -637,32 +590,42 @@ export function VisaoHospitalar({ censoApiUrl, jornadaApiUrl }: VisaoHospitalarP
                   initial="hidden"
                   animate="show"
                 >
-                  {hospitals.map((u, index) => (
-                    <motion.button
-                      key={u.id}
-                      type="button"
-                      className="vh-unit-card"
-                      variants={vhUnitItemVariants}
-                      onClick={() => {
-                        setSelectedHospital(u.id);
-                        setMode('building');
-                        setSelectedFloorId('');
-                      }}
-                    >
+                  {hospitals.map((u, index) => {
+                    const theme = unitCardTheme(u.id);
+                    return (
+                      <motion.button
+                        key={u.id}
+                        type="button"
+                        className="vh-unit-card"
+                        variants={vhUnitItemVariants}
+                        onClick={() => {
+                          setSelectedHospital(u.id);
+                          setMode('building');
+                          setSelectedFloorId('');
+                        }}
+                      >
                       <div
                         className="vh-unit-visual-wrap"
                         style={{
-                          background: unitCardGradient(u.id),
+                          background: theme.background,
                           animationDelay: `${index * 0.18}s`,
+                          boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 14px 32px rgba(0, 0, 0, 0.38), 0 0 0 1px ${theme.accent}66, 0 0 22px ${theme.accent}44`,
                         }}
                         aria-hidden
                       >
-                        <MiniHospital3D hospitalId={u.id} index={index} />
+                        <img
+                          className="vh-mini-hospital-3d"
+                          src="/predio-unidade-3d.png"
+                          alt=""
+                          loading="lazy"
+                          draggable={false}
+                        />
                         <div className="vh-unit-photo-glass" />
                       </div>
                       <span className="vh-unit-card-title">{formatUnitCardTitle(u.label)}</span>
-                    </motion.button>
-                  ))}
+                      </motion.button>
+                    );
+                  })}
                 </motion.div>
               )}
             </section>
