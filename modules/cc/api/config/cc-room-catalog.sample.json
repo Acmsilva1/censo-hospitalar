@@ -1,0 +1,6 @@
+{
+  "_comment": "Opcional: salas extra ou ordem por unidade. Por defeito já existem CC_FIXED_ROOMS_PER_UNIT (default 3) salas SALA-01..NN para cada unidade em BASE_UNITS. Copie para cc-room-catalog.json nesta pasta ou em datalake/hospital.",
+  "ES_HOSPITAL_VITORIA": ["SALA - 01", "SALA - 02", "SALA - 03"],
+  "ES - PS VV": ["SALA - 01", "SALA - 02"],
+  "RJ - PS CAMPO GRANDE": ["SALA 1", "SALA 2"]
+}

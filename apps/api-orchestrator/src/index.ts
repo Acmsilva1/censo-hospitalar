@@ -41,8 +41,10 @@ app.register(websocket);
 const targets = {
   jornadaApi: process.env.JORNADA_API_URL || 'http://localhost:3211',
   censoApi: process.env.CENSO_API_URL || 'http://localhost:3212',
+  ccApi: process.env.CC_API_URL || 'http://localhost:3213',
   jornadaWeb: process.env.JORNADA_WEB_URL || 'http://localhost:5276',
   censoWeb: process.env.CENSO_WEB_URL || 'http://localhost:5278',
+  ccWeb: process.env.CC_WEB_URL || 'http://localhost:5280',
 };
 
 const seenEventIds = new Set<string>();

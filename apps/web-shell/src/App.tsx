@@ -12,15 +12,17 @@ type StateItem = {
 };
 
 export function App() {
-  const [screen, setScreen] = useState<'jornada' | 'censo' | 'visao'>('jornada');
+  const [screen, setScreen] = useState<'jornada' | 'censo' | 'visao' | 'cc'>('jornada');
   const [view, setView] = useState<'home' | 'app'>('home');
   const [items, setItems] = useState<StateItem[]>([]);
   const [wsOnline, setWsOnline] = useState(false);
   const [targets, setTargets] = useState({
     jornadaWeb: 'http://localhost:5276',
     censoWeb: 'http://localhost:5278',
+    ccWeb: 'http://localhost:5280',
     jornadaApi: 'http://localhost:3211',
     censoApi: 'http://localhost:3212',
+    ccApi: 'http://localhost:3213',
   });
 
   const orchestratorHttp = useMemo(() => 'http://localhost:3020', []);
@@ -69,7 +71,7 @@ export function App() {
       .catch(() => undefined);
   }, [orchestratorHttp]);
 
-  function openModule(module: 'jornada' | 'censo' | 'visao') {
+  function openModule(module: 'jornada' | 'censo' | 'visao' | 'cc') {
     setScreen(module);
     setView('app');
   }
@@ -95,6 +97,11 @@ export function App() {
                 <span className="card-title">Censo e Leitos</span>
                 <span className="card-sub">Gestao de leitos e fila de alocacao</span>
               </button>
+              <button className="big-card" onClick={() => openModule('cc')}>
+                <span className="card-kicker">Novo modulo</span>
+                <span className="card-title">Centro Cirúrgico</span>
+                <span className="card-sub">Monitoramento em tempo real por salas e roll de espera</span>
+              </button>
               <button className="big-card" onClick={() => openModule('visao')}>
                 <span className="card-kicker">Novo modulo</span>
                 <span className="card-title">Visao hospitalar</span>
@@ -114,6 +121,7 @@ export function App() {
             <button onClick={() => setView('home')}>Voltar</button>
             <button className={screen === 'jornada' ? 'active' : ''} onClick={() => setScreen('jornada')}>Pronto socorro</button>
             <button className={screen === 'censo' ? 'active' : ''} onClick={() => setScreen('censo')}>Internacao</button>
+            <button className={screen === 'cc' ? 'active' : ''} onClick={() => setScreen('cc')}>Centro cirúrgico</button>
             <button className={screen === 'visao' ? 'active' : ''} onClick={() => setScreen('visao')}>Visao hospitalar</button>
           </nav>
 
@@ -129,6 +137,12 @@ export function App() {
               aria-hidden={screen !== 'censo'}
             >
               <iframe title="Censo" src={targets.censoWeb} />
+            </div>
+            <div
+              className={`iframe-pane ${screen === 'cc' ? 'is-active' : ''}`}
+              aria-hidden={screen !== 'cc'}
+            >
+              <iframe title="Centro Cirúrgico" src={targets.ccWeb} />
             </div>
             <div
               className={`iframe-pane ${screen === 'visao' ? 'is-active' : ''}`}

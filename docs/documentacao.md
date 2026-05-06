@@ -13,6 +13,7 @@
 - Aplicações separadas por domínio:
   - `modules/jornada/*`
   - `modules/censo/*`
+  - `modules/cc/*` (Centro Cirúrgico)
   - `apps/*` (shell e orquestrador)
 
 ### Backend
@@ -22,6 +23,12 @@
   - `@fastify/cors`
   - `@fastify/websocket`
   - `ts-node`
+- CC API:
+  - Fastify
+  - `@fastify/cors`
+  - `@fastify/websocket`
+  - DuckDB
+  - `tsx`
 - Censo API:
   - Express
   - CORS
@@ -83,6 +90,40 @@ Data: 2026-04-29
 ### Segurança residual documentada
 - Criado `SECURITY_EXCEPTIONS.md` para registrar vulnerabilidades transitivas remanescentes de `duckdb` (`node-gyp`/`tar`) sem fix upstream no momento.
 
+Data: 2026-05-06
+
+### Centro Cirúrgico (novo módulo)
+- Criado `modules/cc/api` com endpoints:
+  - `GET /api/health`
+  - `GET /api/cc/summary`
+  - `GET /api/cc/units`
+  - `GET /api/cc/rooms?unit=<unitKey>`
+- Feed em tempo real por WebSocket:
+  - `ws://localhost:3213/ws/cc-state`
+- Fonte de dados local (datalake):
+  - `tbl_centro_cirurgico_bkp.parquet`
+  - `tbl_cc_tempos_mov.parquet`
+- Regras de estado operacional:
+  - `EM_SALA`
+  - `NO_ROLL_ESPERA`
+  - `FORA_FLUXO_ATIVO`
+
+- Criado `modules/cc/web`:
+  - React + Vite na porta `5280`
+  - seleção por unidades via ícones circulares
+  - emoji de hospital animado por unidade
+  - diferenciação de unidades com/sem CC via API
+  - paleta inicial azul (tom amigável)
+
+- Integração no shell e orquestrador:
+  - `apps/api-orchestrator/src/index.ts` agora expõe:
+    - `ccApi: http://localhost:3213`
+    - `ccWeb: http://localhost:5280`
+  - `apps/web-shell/src/App.tsx` agora contém:
+    - card "Centro Cirúrgico" na home
+    - aba dedicada no menu
+    - iframe para `targets.ccWeb`
+
 ## 2. Arquitetura atual da pipeline de dados
 
 ### Fonte local (desenvolvimento)
@@ -106,13 +147,18 @@ Data: 2026-04-29
 ### Jornada API
 - `JORNADA_DADOS_DIR`: pasta dos parquet da jornada
 - `JORNADA_API_PORT` ou `PORT`: porta da API (default 3211)
-- `ORCHESTRATOR_URL`: endpoint do orquestrador (default `http://localhost:3210`)
+- `ORCHESTRATOR_URL`: endpoint do orquestrador (default `http://localhost:3020`)
 
 ### Censo API
 - `DATASET_PATH`: pasta local dos parquet/csv
 - `PORT`: porta da API (default 3212)
 - `REDIS_URL`: opcional (cache/pub-sub)
 - `ORCHESTRATOR_URL`: endpoint do orquestrador
+
+### CC API
+- `CC_DADOS_DIR`: pasta de parquet do Centro Cirúrgico (override opcional)
+- `CC_API_PORT` ou `PORT`: porta da API (default 3213)
+- `CC_REFRESH_MS`: intervalo de refresh do snapshot (default 600000 ms)
 
 ## 4. Fluxo operacional
 
@@ -128,7 +174,27 @@ Esse comando sobe:
 - `modules/jornada/web`
 - `modules/censo/api`
 - `modules/censo/web`
+- `modules/cc/api`
+- `modules/cc/web`
 - `apps/web-shell`
+
+### Execução com Docker Compose (datalake)
+Arquivo: `docker-compose.datalake.yml`
+
+Portas expostas:
+- `3020` (orquestrador)
+- `3211` (jornada/api)
+- `3212` (censo/api)
+- `3213` (cc/api)
+- `5276` (jornada/web)
+- `5278` (censo/web)
+- `5280` (cc/web)
+- `5180` (web-shell)
+
+Mounts externos obrigatórios:
+- Datalake: `../../../datalake:/datalake:ro`
+- Regras de IA: `../../../regras do agente de IA:/regras-agente:ro`
+- Variável de regras: `AGENT_RULES_DIR=/regras-agente`
 
 ### Build
 ```bash
@@ -147,12 +213,14 @@ npm audit --omit=dev
 ```bash
 npm run typecheck -w modules/jornada/api
 npm run build -w modules/censo/api
+npm run typecheck -w modules/cc/api
 ```
 
 3. Frontend:
 ```bash
 npm run build -w modules/jornada/web
 npm run build -w modules/censo/web
+npm run build -w modules/cc/web
 npm run build -w apps/web-shell
 ```
 

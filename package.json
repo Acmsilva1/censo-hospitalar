@@ -6,13 +6,15 @@
     "modules/jornada/api",
     "modules/jornada/web",
     "modules/censo/api",
-    "modules/censo/web"
+    "modules/censo/web",
+    "modules/cc/api",
+    "modules/cc/web"
   ],
   "scripts": {
-    "dev": "concurrently -c auto -n orchestrator,jornada-api,jornada-web,censo-api,censo-web,web-shell \"npm run dev --workspace=apps/api-orchestrator\" \"npm run dev --workspace=modules/jornada/api\" \"npm run dev --workspace=modules/jornada/web\" \"npm run dev --workspace=modules/censo/api\" \"npm run dev --workspace=modules/censo/web\" \"npm run dev --workspace=apps/web-shell\"",
+    "dev": "concurrently -c auto -n orchestrator,jornada-api,jornada-web,censo-api,censo-web,cc-api,cc-web,web-shell \"npm run dev --workspace=apps/api-orchestrator\" \"npm run dev --workspace=modules/jornada/api\" \"npm run dev --workspace=modules/jornada/web\" \"npm run dev --workspace=modules/censo/api\" \"npm run dev --workspace=modules/censo/web\" \"npm run dev --workspace=modules/cc/api\" \"npm run dev --workspace=modules/cc/web\" \"npm run dev --workspace=apps/web-shell\"",
     "dev:docker": "docker compose -f docker-compose.datalake.yml up -d",
     "down:docker": "docker compose -f docker-compose.datalake.yml down",
-    "build": "npm run build -w apps/api-orchestrator && npm run build -w apps/web-shell && npm run build -w modules/jornada/web && npm run build -w modules/censo/web",
+    "build": "npm run build -w apps/api-orchestrator && npm run build -w apps/web-shell && npm run build -w modules/jornada/web && npm run build -w modules/censo/web && npm run build -w modules/cc/web",
     "load-test:censo": "npm run load-test -w controle-leitos-api"
   },
   "devDependencies": {

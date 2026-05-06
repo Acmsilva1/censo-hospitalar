@@ -19,6 +19,8 @@ services:
       - /app/modules/jornada/web/node_modules
       - /app/modules/censo/api/node_modules
       - /app/modules/censo/web/node_modules
+      - /app/modules/cc/api/node_modules
+      - /app/modules/cc/web/node_modules
       - ../../../datalake:/datalake:ro
       - "../../../regras do agente de IA:/regras-agente:ro"
     ports:
@@ -27,5 +29,7 @@ services:
       - "3212:3212"
       - "5276:5276"
       - "5278:5278"
+      - "5280:5280"
       - "5180:5180"
+      - "3213:3213"
     restart: unless-stopped
