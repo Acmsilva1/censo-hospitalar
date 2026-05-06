@@ -1,0 +1,31 @@
+# Stack completo do monorepo (orquestrador + jornada + censo + 3 Vites), igual a `npm run dev` no host.
+# Portas: shell 5180 | censo Vite 5278 | jornada Vite 5276 | APIs 3212 / 3211 | orquestrador 3020
+services:
+  censo-dev:
+    image: node:22
+    container_name: censo-hospitalar-dev
+    working_dir: /app
+    command: sh -lc "npm install && npm run dev"
+    environment:
+      - DATASET_PATH=/datalake/hospital
+      - JORNADA_DADOS_DIR=/datalake/hospital
+      - AGENT_RULES_DIR=/regras-agente
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/apps/api-orchestrator/node_modules
+      - /app/apps/web-shell/node_modules
+      - /app/modules/jornada/api/node_modules
+      - /app/modules/jornada/web/node_modules
+      - /app/modules/censo/api/node_modules
+      - /app/modules/censo/web/node_modules
+      - ../../../datalake:/datalake:ro
+      - "../../../regras do agente de IA:/regras-agente:ro"
+    ports:
+      - "3020:3020"
+      - "3211:3211"
+      - "3212:3212"
+      - "5276:5276"
+      - "5278:5278"
+      - "5180:5180"
+    restart: unless-stopped

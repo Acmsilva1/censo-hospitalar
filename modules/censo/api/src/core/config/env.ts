@@ -8,10 +8,18 @@ function defaultDatasetPath(): string {
   const cwd = process.cwd();
   const bancoLocal = path.resolve(cwd, '../banco local');
   const dados = path.resolve(cwd, '../dados');
+  const datalakeGlobal = path.resolve(cwd, '../../../../../datalake/hospital');
+  const datalakeRepo = path.resolve(cwd, '../../../datalake/hospital');
   const pq = 'tbl_intern_leitos.parquet';
   const csv = 'tbl_intern_leitos.csv';
   if (fs.existsSync(path.join(bancoLocal, pq)) || fs.existsSync(path.join(bancoLocal, csv))) {
     return bancoLocal;
+  }
+  if (fs.existsSync(path.join(datalakeGlobal, pq)) || fs.existsSync(path.join(datalakeGlobal, csv))) {
+    return datalakeGlobal;
+  }
+  if (fs.existsSync(path.join(datalakeRepo, pq)) || fs.existsSync(path.join(datalakeRepo, csv))) {
+    return datalakeRepo;
   }
   return dados;
 }

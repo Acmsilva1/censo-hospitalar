@@ -28,11 +28,9 @@ export interface SqlDataSource {
 
 class DuckDbSource implements SqlDataSource {
   private db: duckdb.Database;
-  private conn: duckdb.Connection;
   constructor() {
     fs.mkdirSync(path.dirname(DUCKDB_PATH), { recursive: true });
     this.db = new duckdb.Database(DUCKDB_PATH);
-    this.conn = this.db.connect();
   }
   sourceName(): string {
     return `duckdb:${DUCKDB_PATH}`;
@@ -57,14 +55,23 @@ class DuckDbSource implements SqlDataSource {
       await this.query(`CREATE OR REPLACE VIEW ${base} AS SELECT * FROM read_parquet('${q}')`);
     }
   }
-  async query<T extends Row = Row>(sql: string, params: unknown[] = []): Promise<T[]> {
+  private runAll<T extends Row = Row>(sql: string, params: unknown[]): Promise<T[]> {
     return new Promise((resolve, reject) => {
-      this.conn.all(sql, ...(params as any[]), (err: Error | null, rows?: any) => {
+      this.db.all(sql, ...(params as any[]), (err: Error | null, rows?: any) => {
         if (err) return reject(err);
         const out = ((rows || []) as Row[]).map((r) => normalizeRow(r));
         resolve(out as T[]);
       });
     });
+  }
+  async query<T extends Row = Row>(sql: string, params: unknown[] = []): Promise<T[]> {
+    try {
+      return await this.runAll<T>(sql, params);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (!msg.toLowerCase().includes('connection error')) throw error;
+      return this.runAll<T>(sql, params);
+    }
   }
 }
 
